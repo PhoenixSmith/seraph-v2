@@ -25,12 +25,13 @@ interface User {
   currentStreak?: number
 }
 
-export function Auth() {
+export function Auth({ onSkip }: { onSkip?: () => void }) {
   const { signIn } = useAuthActions()
   const [email, setEmail] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [emailSent, setEmailSent] = useState(false)
   const [error, setError] = useState('')
+  const [isSignUp, setIsSignUp] = useState(false)
 
   const handleMagicLink = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -78,7 +79,7 @@ export function Auth() {
             </CardDescription>
           </CardHeader>
           <CardContent className="text-center text-sm text-muted-foreground">
-            Click the link in the email to sign in.
+            Click the link in the email to {isSignUp ? 'create your account' : 'sign in'}.
           </CardContent>
           <CardFooter>
             <Button
@@ -102,7 +103,9 @@ export function Auth() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-3xl">Seraph</CardTitle>
-          <CardDescription>Sign in to continue your journey</CardDescription>
+          <CardDescription>
+            {isSignUp ? 'Create an account to start your journey' : 'Sign in to continue your journey'}
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {error && (
@@ -132,7 +135,7 @@ export function Auth() {
               className="w-full"
               disabled={isLoading || !email}
             >
-              {isLoading ? 'Sending...' : 'Send magic link'}
+              {isLoading ? 'Sending...' : isSignUp ? 'Create account' : 'Send magic link'}
             </Button>
           </form>
 
@@ -157,13 +160,35 @@ export function Auth() {
               <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
               <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
             </svg>
-            Continue with Google
+            {isSignUp ? 'Sign up with Google' : 'Continue with Google'}
           </Button>
         </CardContent>
-        <CardFooter>
+        <CardFooter className="flex flex-col gap-4">
+          <p className="w-full text-center text-sm text-muted-foreground">
+            {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
+            <button
+              type="button"
+              onClick={() => {
+                setIsSignUp(!isSignUp)
+                setError('')
+              }}
+              className="text-primary hover:underline font-medium"
+            >
+              {isSignUp ? 'Sign in' : 'Sign up'}
+            </button>
+          </p>
           <p className="w-full text-center text-xs text-muted-foreground">
             By continuing, you agree to our Terms of Service
           </p>
+          {onSkip && (
+            <Button
+              variant="ghost"
+              className="w-full text-muted-foreground"
+              onClick={onSkip}
+            >
+              Skip for now
+            </Button>
+          )}
         </CardFooter>
       </Card>
     </div>

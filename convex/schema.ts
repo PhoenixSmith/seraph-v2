@@ -15,10 +15,70 @@ export default defineSchema({
     // Gamification fields
     totalXp: v.optional(v.number()),
     currentStreak: v.optional(v.number()),
+    longestStreak: v.optional(v.number()),
     lastReadDate: v.optional(v.string()), // YYYY-MM-DD format
+    // Tier (computed from rolling XP, cached for performance)
+    currentTier: v.optional(v.string()),
   })
-    .index("by_email", ["email"])
+    .index("email", ["email"])
     .index("by_name", ["name"]),
+
+  // Chapter completion tracking
+  chapterCompletions: defineTable({
+    userId: v.id("users"),
+    book: v.string(),
+    chapter: v.number(),
+    completedAt: v.number(),
+    xpAwarded: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_and_book", ["userId", "book"])
+    .index("by_user_book_chapter", ["userId", "book", "chapter"]),
+
+  // Rolling XP - tracks daily XP for tier calculations (14-day window)
+  rollingXp: defineTable({
+    userId: v.id("users"),
+    date: v.string(), // YYYY-MM-DD
+    xpEarned: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_and_date", ["userId", "date"]),
+
+  // Achievement definitions
+  achievements: defineTable({
+    key: v.string(), // unique identifier e.g. "complete_genesis"
+    name: v.string(),
+    description: v.string(),
+    icon: v.string(), // emoji or icon name
+    category: v.union(
+      v.literal("book_completion"),
+      v.literal("streak"),
+      v.literal("xp_milestone"),
+      v.literal("special")
+    ),
+    requirement: v.object({
+      type: v.string(), // "complete_book", "streak_days", "total_xp", etc.
+      value: v.union(v.string(), v.number()), // book name or number threshold
+    }),
+    xpReward: v.number(),
+  }).index("by_key", ["key"]),
+
+  // User achievements (unlocked)
+  userAchievements: defineTable({
+    userId: v.id("users"),
+    achievementId: v.id("achievements"),
+    unlockedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_and_achievement", ["userId", "achievementId"]),
+
+  // Tier thresholds configuration
+  tierThresholds: defineTable({
+    tier: v.string(), // "Bronze", "Silver", "Gold", "Platinum", "Diamond"
+    minXp: v.number(), // minimum 14-day rolling XP for this tier
+    order: v.number(), // for sorting (1 = lowest, 5 = highest)
+    color: v.string(), // hex color for display
+  }).index("by_order", ["order"]),
 
   // Groups table
   groups: defineTable({

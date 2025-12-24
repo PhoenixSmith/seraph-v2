@@ -41,6 +41,9 @@ interface QuizState {
 
 function App() {
   const { isLoading, isAuthenticated } = useConvexAuth()
+  const [debugMode, setDebugMode] = useState(() => {
+    return localStorage.getItem('debugMode') === 'true'
+  })
   const user = useQuery(api.users.currentUser)
   const recordVerseRead = useMutation(api.progress.recordVerseRead)
 
@@ -596,8 +599,11 @@ function App() {
     )
   }
 
-  if (!isAuthenticated) {
-    return <Auth />
+  if (!isAuthenticated && !debugMode) {
+    return <Auth onSkip={() => {
+      localStorage.setItem('debugMode', 'true')
+      setDebugMode(true)
+    }} />
   }
 
   return (
@@ -619,7 +625,20 @@ function App() {
               {isDarkMode() ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </Button>
             <div className="absolute top-0 right-0">
-              {user && <UserButton user={user} />}
+              {user ? (
+                <UserButton user={user} />
+              ) : debugMode ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    localStorage.removeItem('debugMode')
+                    setDebugMode(false)
+                  }}
+                >
+                  Sign in
+                </Button>
+              ) : null}
             </div>
             <h1 className="text-2xl font-semibold tracking-tight">Seraph</h1>
             <p className="text-sm text-muted-foreground mt-2 uppercase tracking-wider">

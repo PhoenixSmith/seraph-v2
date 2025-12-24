@@ -8,10 +8,13 @@
  * @module
  */
 
+import type * as achievements from "../achievements.js";
 import type * as auth from "../auth.js";
+import type * as chapters from "../chapters.js";
 import type * as groups from "../groups.js";
 import type * as http from "../http.js";
 import type * as progress from "../progress.js";
+import type * as tiers from "../tiers.js";
 import type * as users from "../users.js";
 
 import type {
@@ -21,10 +24,13 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  achievements: typeof achievements;
   auth: typeof auth;
+  chapters: typeof chapters;
   groups: typeof groups;
   http: typeof http;
   progress: typeof progress;
+  tiers: typeof tiers;
   users: typeof users;
 }>;
 

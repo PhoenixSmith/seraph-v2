@@ -306,7 +306,7 @@ export const inviteToGroup = mutation({
     if (identifier.includes("@")) {
       invitedUser = await ctx.db
         .query("users")
-        .withIndex("by_email", (q) => q.eq("email", identifier))
+        .withIndex("email", (q) => q.eq("email", identifier))
         .unique();
     }
 
