@@ -1,8 +1,11 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
-import { useConvexAuth, useQuery, useMutation } from "convex/react"
-import { api } from "../convex/_generated/api"
-import { Auth, UserButton, StreakXPDisplay } from './components/Auth'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useSupabaseAuth, useQuery } from '@/hooks/useSupabase'
+import { useSound } from '@/hooks/useSound'
+import * as api from '@/lib/api'
+import { Auth, UserButton, StreakXPDisplay, User } from './components/Auth'
 import { GroupsPage } from './components/groups'
+import { ProfilePage } from './components/profile'
+import { useRewardModal, RewardRenderer } from './components/rewards'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -15,7 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Sun, Moon, BookOpen, LayoutGrid, Users, X, Check, ArrowRight, ChevronLeft, ChevronRight, Star, CheckCircle } from 'lucide-react'
+import { Sun, Moon, BookOpen, LayoutGrid, Users, X, Check, ArrowRight, ChevronLeft, ChevronRight, Star, CheckCircle, Lock } from 'lucide-react'
+import { ScrolilyLogo } from './components/ScrolilyLogo'
 import { cn } from '@/lib/utils'
 import bibleData from '../BSB.json'
 import questionsData from '../seraph-progress.json'
@@ -40,12 +44,30 @@ interface QuizState {
 }
 
 function App() {
-  const { isLoading, isAuthenticated } = useConvexAuth()
+  const { isLoading, isAuthenticated } = useSupabaseAuth()
+  const { play: playSound } = useSound()
+  const { currentReward, isOpen: isRewardOpen, queueReward, dismissReward } = useRewardModal()
   const [debugMode, setDebugMode] = useState(() => {
     return localStorage.getItem('debugMode') === 'true'
   })
-  const user = useQuery(api.users.currentUser)
-  const recordVerseRead = useMutation(api.progress.recordVerseRead)
+
+  // Intro animation states
+  const [introPhase, setIntroPhase] = useState<'splash' | 'animating' | 'done'>('splash')
+
+  // Fetch current user data
+  const user = useQuery<api.User | null>(
+    () => isAuthenticated ? api.getCurrentUser() : Promise.resolve(null),
+    [isAuthenticated]
+  )
+
+  // Fetch pending invites
+  const pendingInvites = useQuery<api.PendingInvite[]>(
+    () => isAuthenticated ? api.getPendingInvites() : Promise.resolve([]),
+    [isAuthenticated]
+  )
+
+  // Fetch completed chapters for current book (for locking system)
+  const [completedChapters, setCompletedChapters] = useState<number[]>([])
 
   const [position, setPosition] = useState({ book: 0, chapter: 0, verse: 0 })
   const [theme, setTheme] = useState(() => {
@@ -53,7 +75,7 @@ function App() {
     return saved || 'system'
   })
   const [viewMode, setViewMode] = useState<'reading' | 'overview' | 'groups'>('reading')
-  const pendingInvites = useQuery(api.groups.getPendingInvites)
+  const [showProfile, setShowProfile] = useState(false)
 
   const [quizMode, setQuizMode] = useState(false)
   const [quizState, setQuizState] = useState<QuizState>({
@@ -79,18 +101,39 @@ function App() {
 
   useEffect(() => {
     const root = document.documentElement
-    if (theme === 'system') {
-      root.removeAttribute('data-theme')
-      root.classList.remove('dark')
-    } else if (theme === 'dark') {
-      root.setAttribute('data-theme', 'dark')
-      root.classList.add('dark')
-    } else {
-      root.setAttribute('data-theme', 'light')
-      root.classList.remove('dark')
+
+    const applyTheme = (isDark: boolean) => {
+      if (isDark) {
+        root.classList.add('dark')
+      } else {
+        root.classList.remove('dark')
+      }
     }
-    localStorage.setItem('theme', theme)
+
+    if (theme === 'system') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+      applyTheme(mediaQuery.matches)
+
+      const handleChange = (e: MediaQueryListEvent) => applyTheme(e.matches)
+      mediaQuery.addEventListener('change', handleChange)
+      localStorage.setItem('theme', theme)
+
+      return () => mediaQuery.removeEventListener('change', handleChange)
+    } else {
+      applyTheme(theme === 'dark')
+      localStorage.setItem('theme', theme)
+    }
   }, [theme])
+
+  // Intro animation sequence
+  useEffect(() => {
+    const timer1 = setTimeout(() => setIntroPhase('animating'), 400)
+    const timer2 = setTimeout(() => setIntroPhase('done'), 900)
+    return () => {
+      clearTimeout(timer1)
+      clearTimeout(timer2)
+    }
+  }, [])
 
   const [lastTrackedVerse, setLastTrackedVerse] = useState<string | null>(null)
   useEffect(() => {
@@ -98,8 +141,26 @@ function App() {
     const verseKey = `${position.book}-${position.chapter}-${position.verse}`
     if (lastTrackedVerse === verseKey) return
     setLastTrackedVerse(verseKey)
-    recordVerseRead().catch(console.error)
-  }, [position, isAuthenticated, recordVerseRead, lastTrackedVerse])
+    api.recordVerseRead().catch(console.error)
+  }, [position, isAuthenticated, lastTrackedVerse])
+
+  // Fetch completed chapters when book changes
+  useEffect(() => {
+    if (!isAuthenticated || !currentBook) {
+      setCompletedChapters([])
+      return
+    }
+    api.getCompletedChaptersForBook(currentBook.name)
+      .then(setCompletedChapters)
+      .catch(console.error)
+  }, [isAuthenticated, currentBook?.name])
+
+  // Check if a chapter is unlocked (chapter 1 always unlocked, rest require previous chapter completed)
+  const isChapterUnlocked = useCallback((chapterNum: number): boolean => {
+    if (!isAuthenticated) return true // Allow all in debug mode
+    if (chapterNum === 1) return true // First chapter always unlocked
+    return completedChapters.includes(chapterNum - 1) // Previous chapter must be completed
+  }, [isAuthenticated, completedChapters])
 
   const setBookIndex = (book: number) => setPosition({ book, chapter: 0, verse: 0 })
   const setChapterIndex = (chapter: number) => setPosition(pos => ({ ...pos, chapter, verse: 0 }))
@@ -153,31 +214,65 @@ function App() {
     if (position.verse < verses.length - 1) {
       setPosition(pos => ({ ...pos, verse: pos.verse + 1 }))
     } else if (position.chapter < chapters.length - 1) {
+      const nextChapterNum = chapters[position.chapter + 1]?.chapter || position.chapter + 2
+      if (!isChapterUnlocked(nextChapterNum)) return // Don't go to locked chapter
       setPosition(pos => ({ ...pos, chapter: pos.chapter + 1, verse: 0 }))
     } else if (position.book < books.length - 1) {
+      // Moving to next book - chapter 1 is always unlocked
       setPosition({ book: position.book + 1, chapter: 0, verse: 0 })
     } else {
+      // Looping back to start - Genesis 1 is unlocked
       setPosition({ book: 0, chapter: 0, verse: 0 })
     }
   }
 
-  const goToPrevChapter = () => {
+  const goToPrevChapter = async () => {
     if (position.chapter > 0) {
       setChapterIndex(position.chapter - 1)
     } else if (position.book > 0) {
       const prevBook = books[position.book - 1]
-      setPosition({
-        book: position.book - 1,
-        chapter: prevBook.chapters.length - 1,
-        verse: 0
-      })
+
+      if (isAuthenticated) {
+        try {
+          // Fetch completed chapters for the previous book
+          const prevBookCompleted = await api.getCompletedChaptersForBook(prevBook.name)
+          // Find highest unlocked chapter: max completed + 1, or chapter 1 if none completed
+          // Cap at total chapters in the book
+          const maxCompleted = prevBookCompleted.length > 0 ? Math.max(...prevBookCompleted) : 0
+          const highestUnlocked = Math.min(maxCompleted + 1, prevBook.chapters.length)
+          // Chapter index is 0-based, chapter numbers are 1-based
+          setPosition({
+            book: position.book - 1,
+            chapter: highestUnlocked - 1,
+            verse: 0
+          })
+        } catch (error) {
+          console.error('Failed to fetch previous book progress:', error)
+          // Fallback to chapter 1
+          setPosition({
+            book: position.book - 1,
+            chapter: 0,
+            verse: 0
+          })
+        }
+      } else {
+        // For non-authenticated/debug users, go to last chapter
+        setPosition({
+          book: position.book - 1,
+          chapter: prevBook.chapters.length - 1,
+          verse: 0
+        })
+      }
     }
   }
 
   const goToNextChapter = () => {
     if (position.chapter < chapters.length - 1) {
+      const nextChapterNum = chapters[position.chapter + 1]?.chapter || position.chapter + 2
+      if (!isChapterUnlocked(nextChapterNum)) return // Don't go to locked chapter
       setChapterIndex(position.chapter + 1)
     } else if (position.book < books.length - 1) {
+      // Moving to next book - chapter 1 is always unlocked
       setPosition({ book: position.book + 1, chapter: 0, verse: 0 })
     }
   }
@@ -217,6 +312,10 @@ function App() {
       ? quizState.wrongAnswers[quizState.currentIndex]
       : quizState.questions[quizState.currentIndex]
     const isCorrect = letter === currentQuestion.correctAnswer
+
+    // Play sound based on answer correctness
+    playSound(isCorrect ? 'success' : 'rejected')
+
     setQuizState(prev => ({
       ...prev,
       selectedAnswer: letter,
@@ -228,7 +327,7 @@ function App() {
         ? [...prev.wrongAnswers, currentQuestion]
         : prev.wrongAnswers
     }))
-  }, [quizState])
+  }, [quizState, playSound])
 
   const nextQuestion = useCallback(() => {
     const questionList = quizState.inRetryMode ? quizState.wrongAnswers : quizState.questions
@@ -256,7 +355,7 @@ function App() {
     }
   }, [quizState])
 
-  const exitQuiz = useCallback(() => {
+  const exitQuiz = useCallback((navigateToNext = false) => {
     setQuizMode(false)
     setQuizState({
       questions: [],
@@ -270,7 +369,21 @@ function App() {
       correctCount: 0,
       totalAnswered: 0
     })
-  }, [])
+
+    if (navigateToNext) {
+      // Navigate to next chapter or next book's first chapter
+      if (position.chapter < chapters.length - 1) {
+        // Go to next chapter in current book
+        setChapterIndex(position.chapter + 1)
+      } else if (position.book < books.length - 1) {
+        // Go to first chapter of next book
+        setPosition({ book: position.book + 1, chapter: 0, verse: 0 })
+      } else {
+        // At last chapter of last book - loop back to Genesis 1
+        setPosition({ book: 0, chapter: 0, verse: 0 })
+      }
+    }
+  }, [position, chapters.length, books.length])
 
   const hasQuestions = getChapterQuestions().length > 0
 
@@ -288,18 +401,155 @@ function App() {
   }, [getPastelColor])
 
   const selectChapterFromOverview = useCallback((chapterIdx: number) => {
+    const chapterNum = chapters[chapterIdx]?.chapter || chapterIdx + 1
+    if (!isChapterUnlocked(chapterNum)) return // Don't navigate to locked chapters
     setChapterIndex(chapterIdx)
     setViewMode('reading')
-  }, [])
+  }, [chapters, isChapterUnlocked])
 
   const [showConfetti, setShowConfetti] = useState(false)
+  const completionHandledRef = useRef(false)
+
   useEffect(() => {
-    if (quizState.completed) {
-      setShowConfetti(true)
-      const timer = setTimeout(() => setShowConfetti(false), 4000)
-      return () => clearTimeout(timer)
+    // Reset the handled flag when quiz is no longer completed
+    if (!quizState.completed) {
+      completionHandledRef.current = false
+      return
     }
-  }, [quizState.completed])
+
+    // Only trigger confetti once per completion
+    if (completionHandledRef.current) return
+    completionHandledRef.current = true
+
+    setShowConfetti(true)
+    playSound('levelup')
+    const timer = setTimeout(() => setShowConfetti(false), 2500)
+
+    // Record chapter completion and refresh completed chapters list
+    if (isAuthenticated && currentBook && currentChapter) {
+        api.completeChapter(currentBook.name, currentChapter.chapter)
+          .then(async (result) => {
+            // Check if this completes the book (last chapter)
+            const isLastChapter = currentChapter.chapter === currentBook.chapters.length
+
+            // Show reward modal for book completion or achievement
+            if (result.success && !result.already_completed) {
+              if (isLastChapter && result.achievement?.awarded && result.achievement.achievement) {
+                // Book completion with NEW achievement
+                queueReward({
+                  type: 'book_completion',
+                  book: currentBook.name,
+                  chaptersCompleted: currentBook.chapters.length,
+                  xpAwarded: result.xp_awarded,
+                  achievement: {
+                    name: result.achievement.achievement.name,
+                    description: result.achievement.achievement.description,
+                    icon: result.achievement.achievement.icon,
+                    xp_reward: result.achievement.achievement.xp_reward
+                  }
+                })
+              } else if (isLastChapter && !result.achievement?.awarded) {
+                // Book completion but achievement already unlocked - still celebrate!
+                // Fetch the existing achievement info using book progress API
+                try {
+                  const bookProgress = await api.getAllBookProgress()
+                  const thisBook = bookProgress.find(b => b.book === currentBook.name)
+                  if (thisBook && thisBook.achievement_unlocked) {
+                    const achievements = await api.getAchievementsWithStatus()
+                    const existingAchievement = achievements.find(a =>
+                      a.key === thisBook.achievement_key
+                    )
+                    queueReward({
+                      type: 'book_completion',
+                      book: currentBook.name,
+                      chaptersCompleted: currentBook.chapters.length,
+                      xpAwarded: result.xp_awarded,
+                      achievement: existingAchievement ? {
+                        name: existingAchievement.name,
+                        description: existingAchievement.description,
+                        icon: existingAchievement.icon,
+                        xp_reward: 0 // Already earned, no new XP
+                      } : undefined
+                    })
+                  } else {
+                    queueReward({
+                      type: 'book_completion',
+                      book: currentBook.name,
+                      chaptersCompleted: currentBook.chapters.length,
+                      xpAwarded: result.xp_awarded
+                    })
+                  }
+                } catch {
+                  // Fallback - show celebration without achievement details
+                  queueReward({
+                    type: 'book_completion',
+                    book: currentBook.name,
+                    chaptersCompleted: currentBook.chapters.length,
+                    xpAwarded: result.xp_awarded
+                  })
+                }
+              } else if (result.achievement?.awarded && result.achievement.achievement) {
+                // Standalone achievement (streak, etc.)
+                queueReward({
+                  type: 'achievement',
+                  achievement: {
+                    name: result.achievement.achievement.name,
+                    description: result.achievement.achievement.description,
+                    icon: result.achievement.achievement.icon,
+                    category: result.achievement.achievement.key.startsWith('streak_') ? 'streak' : 'special',
+                    xp_reward: result.achievement.achievement.xp_reward
+                  }
+                })
+              }
+            } else if (result.success && result.already_completed && isLastChapter) {
+              // Chapter already completed but it's the last chapter - still show celebration
+              try {
+                const bookProgress = await api.getAllBookProgress()
+                const thisBook = bookProgress.find(b => b.book === currentBook.name)
+                if (thisBook && thisBook.achievement_unlocked) {
+                  const achievements = await api.getAchievementsWithStatus()
+                  const existingAchievement = achievements.find(a =>
+                    a.key === thisBook.achievement_key
+                  )
+                  queueReward({
+                    type: 'book_completion',
+                    book: currentBook.name,
+                    chaptersCompleted: currentBook.chapters.length,
+                    xpAwarded: 0, // No new XP
+                    achievement: existingAchievement ? {
+                      name: existingAchievement.name,
+                      description: existingAchievement.description,
+                      icon: existingAchievement.icon,
+                      xp_reward: 0 // Already earned
+                    } : undefined
+                  })
+                } else {
+                  queueReward({
+                    type: 'book_completion',
+                    book: currentBook.name,
+                    chaptersCompleted: currentBook.chapters.length,
+                    xpAwarded: 0
+                  })
+                }
+              } catch {
+                queueReward({
+                  type: 'book_completion',
+                  book: currentBook.name,
+                  chaptersCompleted: currentBook.chapters.length,
+                  xpAwarded: 0
+                })
+              }
+            }
+
+            // Refresh completed chapters to unlock the next one
+            return api.getCompletedChaptersForBook(currentBook.name)
+          })
+          .then(setCompletedChapters)
+          .catch(console.error)
+    }
+
+    return () => clearTimeout(timer)
+  }, [quizState.completed, isAuthenticated, currentBook, currentChapter, playSound, queueReward])
 
   const currentQuestion = quizState.inRetryMode
     ? quizState.wrongAnswers[quizState.currentIndex]
@@ -311,6 +561,17 @@ function App() {
     : quizState.currentIndex + (quizState.showResult ? 1 : 0)
   const progressPercent = totalQuestions > 0 ? (answeredQuestions / totalQuestions) * 100 : 0
 
+  // Convert api.User to User type for components
+  const userForComponents: User | undefined = user ? {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    avatar_url: user.avatar_url,
+    avatar_config: user.avatar_config,
+    total_xp: user.total_xp,
+    current_streak: user.current_streak
+  } : undefined
+
   const Confetti = () => {
     if (!showConfetti) return null
     return (
@@ -321,7 +582,7 @@ function App() {
             className="absolute w-2.5 h-2.5 rounded-sm animate-confetti"
             style={{
               left: `${Math.random() * 100}%`,
-              animationDelay: `${Math.random() * 3}s`,
+              animationDelay: `${Math.random() * 0.5}s`,
               backgroundColor: ['#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#8b5cf6', '#ec4899'][Math.floor(Math.random() * 6)]
             }}
           />
@@ -330,33 +591,73 @@ function App() {
     )
   }
 
-  const QuizComplete = () => (
-    <div className="flex-1 flex flex-col items-center justify-center p-8 text-center animate-in zoom-in-95">
-      <Confetti />
-      <div className="w-24 h-24 rounded-full bg-gradient-to-br from-green-500 to-green-600 text-white flex items-center justify-center mb-8 shadow-lg">
-        <CheckCircle className="w-12 h-12" />
-      </div>
-      <h2 className="text-3xl font-bold mb-4">Chapter Complete!</h2>
-      <p className="text-lg text-muted-foreground mb-8">
-        You got <strong className="text-foreground">{quizState.correctCount}</strong> out of <strong className="text-foreground">{quizState.totalAnswered}</strong> correct
-      </p>
-      <div className="flex gap-8 mb-10">
-        <div className="text-center">
-          <span className="block text-4xl font-bold text-primary">
-            {Math.round((quizState.correctCount / quizState.totalAnswered) * 100)}%
-          </span>
-          <span className="text-xs uppercase tracking-wide text-muted-foreground">Accuracy</span>
+  const QuizComplete = () => {
+    const hasNextChapter = position.chapter < chapters.length - 1
+    const hasNextBook = position.book < books.length - 1
+    const nextChapterNum = hasNextChapter ? (currentChapter?.chapter || 0) + 1 : null
+
+    // Determine the next destination text
+    const getNextDestination = () => {
+      if (hasNextChapter) {
+        return `${currentBook?.name} ${nextChapterNum}`
+      } else if (hasNextBook) {
+        const nextBook = books[position.book + 1]
+        return `${nextBook?.name} 1`
+      } else {
+        return 'Genesis 1'
+      }
+    }
+
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center animate-in zoom-in-95">
+        <Confetti />
+        <div className="w-24 h-24 rounded-full bg-gradient-to-br from-green-500 to-green-600 text-white flex items-center justify-center mb-8 shadow-lg">
+          <CheckCircle className="w-12 h-12" />
         </div>
-        <div className="text-center">
-          <span className="block text-4xl font-bold text-primary">{quizState.questions.length}</span>
-          <span className="text-xs uppercase tracking-wide text-muted-foreground">Questions</span>
+        <h2 className="text-3xl font-bold mb-4">Chapter Complete!</h2>
+        <p className="text-lg text-muted-foreground mb-4">
+          You got <strong className="text-foreground">{quizState.correctCount}</strong> out of <strong className="text-foreground">{quizState.totalAnswered}</strong> correct
+        </p>
+        {nextChapterNum && isAuthenticated && (
+          <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400 mb-4 animate-in slide-in-from-bottom">
+            <Lock className="w-4 h-4" />
+            <span>Chapter {nextChapterNum} unlocked!</span>
+          </div>
+        )}
+        <div className="flex gap-8 mb-10">
+          <div className="text-center">
+            <span className="block text-4xl font-bold text-primary">
+              {Math.round((quizState.correctCount / quizState.totalAnswered) * 100)}%
+            </span>
+            <span className="text-xs uppercase tracking-wide text-muted-foreground">Accuracy</span>
+          </div>
+          <div className="text-center">
+            <span className="block text-4xl font-bold text-primary">{quizState.questions.length}</span>
+            <span className="text-xs uppercase tracking-wide text-muted-foreground">Questions</span>
+          </div>
         </div>
+        <Button size="lg" onClick={() => exitQuiz(true)}>
+          <ArrowRight className="w-5 h-5 mr-2" />
+          Continue to {getNextDestination()}
+        </Button>
       </div>
-      <Button size="lg" onClick={exitQuiz}>
-        Continue Reading
-      </Button>
-    </div>
-  )
+    )
+  }
+
+  // Book header images mapping - DISABLED: Re-enable only if human requests
+  // const bookHeaderImages: Record<string, string> = {
+  //   'Genesis': '/mattes/book_headers/Genesis.png',
+  //   'Exodus': '/mattes/book_headers/Exodus.png',
+  //   'Leviticus': '/mattes/book_headers/Leviticus.png',
+  //   'Numbers': '/mattes/book_headers/Numbers.png',
+  //   'Deuteronomy': '/mattes/book_headers/Deuteronomy.png',
+  //   'Joshua': '/mattes/book_headers/Joshua.png',
+  //   'Judges': '/mattes/book_headers/Judges.png',
+  //   'Ruth': '/mattes/book_headers/Ruth.png',
+  //   '1 Samuel': '/mattes/book_headers/1 Samuel.png',
+  //   '2 Samuel': '/mattes/book_headers/2 Samuel.png',
+  //   '1 Kings': '/mattes/book_headers/1 Kings.png',
+  // }
 
   const ChapterOverview = () => {
     const COLS = 5
@@ -364,6 +665,9 @@ function App() {
     const rows = Math.ceil(totalChapters / COLS)
     const bookColor = getPastelColor(currentBook?.name || 'Genesis')
     const textColor = getDarkerColor(currentBook?.name || 'Genesis')
+    // DISABLED: Re-enable only if human requests
+    // const bookHeaderImage = bookHeaderImages[currentBook?.name || '']
+    const bookHeaderImage = null
 
     const getGridPosition = (index: number) => {
       const row = Math.floor(index / COLS)
@@ -388,7 +692,7 @@ function App() {
 
       return (
         <svg
-          className="absolute top-0 left-0 pointer-events-none opacity-60"
+          className="absolute top-0 left-0 pointer-events-none"
           width={totalWidth}
           height={totalHeight}
         >
@@ -402,10 +706,9 @@ function App() {
                 y1={from.y}
                 x2={to.x}
                 y2={to.y}
-                stroke="currentColor"
-                strokeWidth="3"
+                strokeWidth="4"
                 strokeLinecap="round"
-                className="text-border"
+                className="stroke-stone-300 dark:stroke-stone-600"
               />
             )
           })}
@@ -415,74 +718,122 @@ function App() {
 
     return (
       <div className="flex-1 flex flex-col gap-6 animate-in fade-in">
-        <Card className="p-5 relative overflow-hidden">
-          <div
-            className="absolute top-0 left-0 right-0 h-1"
-            style={{ background: `linear-gradient(90deg, ${bookColor}, hsl(var(--primary)))` }}
-          />
-          <div className="flex items-center gap-4">
-            <div
-              className="w-12 h-12 rounded-lg flex items-center justify-center text-white shadow"
-              style={{ background: `linear-gradient(135deg, ${bookColor}, hsl(var(--primary)))` }}
-            >
-              <BookOpen className="w-6 h-6" />
+        <Card className="p-0 relative overflow-hidden">
+          {bookHeaderImage ? (
+            <div className="relative">
+              <img
+                src={bookHeaderImage}
+                alt={`${currentBook?.name} header`}
+                className="w-full h-32 object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+              <div className="absolute bottom-3 left-4 text-white">
+                <h2 className="text-xl font-semibold drop-shadow-lg">{currentBook?.name}</h2>
+                <span className="text-sm text-white/80">{totalChapters} Chapters</span>
+              </div>
             </div>
-            <div>
-              <h2 className="text-xl font-semibold">{currentBook?.name}</h2>
-              <span className="text-sm text-muted-foreground">{totalChapters} Chapters</span>
+          ) : (
+            <div className="p-5">
+              <div
+                className="absolute top-0 left-0 right-0 h-1"
+                style={{ background: `linear-gradient(90deg, ${bookColor}, hsl(var(--primary)))` }}
+              />
+              <div className="flex items-center gap-4">
+                <div
+                  className="w-12 h-12 rounded-lg flex items-center justify-center text-white shadow"
+                  style={{ background: `linear-gradient(135deg, ${bookColor}, hsl(var(--primary)))` }}
+                >
+                  <BookOpen className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold">{currentBook?.name}</h2>
+                  <span className="text-sm text-muted-foreground">{totalChapters} Chapters</span>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </Card>
 
         <div className="flex items-center gap-4">
-          <Progress value={((position.chapter + 1) / totalChapters) * 100} className="flex-1" />
+          <Progress
+            key={position.book}
+            value={(completedChapters.length / totalChapters) * 100}
+            className="flex-1"
+            animate
+            indicatorStyle={{
+              background: `linear-gradient(90deg,
+                ${getPastelColor(currentBook?.name || 'Genesis', 0.8, 0.45)} 0%,
+                ${getPastelColor(currentBook?.name || 'Genesis', 0.75, 0.55)} 25%,
+                ${bookColor} 50%,
+                ${getPastelColor(currentBook?.name || 'Genesis', 0.7, 0.7)} 75%,
+                ${getPastelColor(currentBook?.name || 'Genesis', 0.65, 0.8)} 100%
+              )`
+            }}
+          />
           <span className="text-xs text-muted-foreground whitespace-nowrap">
-            Chapter {position.chapter + 1} of {totalChapters}
+            {completedChapters.length} of {totalChapters} completed
           </span>
         </div>
 
-        <Card className="p-6 relative overflow-hidden">
-          <ConnectionLines />
-          <div
-            className="grid gap-3 justify-center relative z-10"
-            style={{ gridTemplateColumns: `repeat(${COLS}, 64px)` }}
-          >
+        <Card className="p-6 flex justify-center overflow-hidden">
+          <div className="relative">
+            <ConnectionLines />
+            <div
+              className="grid gap-3 relative z-10"
+              style={{ gridTemplateColumns: `repeat(${COLS}, 64px)` }}
+            >
             {chapters.map((chapter: { chapter: number; verses: unknown[] }, idx: number) => {
               const { row, col } = getGridPosition(idx)
+              const chapterNum = chapter.chapter
               const isCurrent = idx === position.chapter
-              const isCompleted = idx < position.chapter
+              const isCompleted = completedChapters.includes(chapterNum)
+              const isUnlocked = isChapterUnlocked(chapterNum)
+              const isLocked = !isUnlocked
               const verseCount = chapter.verses?.length || 0
 
               return (
                 <button
                   key={idx}
                   className={cn(
-                    "w-16 h-16 rounded-lg flex flex-col items-center justify-center gap-0.5 relative transition-all hover:-translate-y-1 hover:shadow-lg",
-                    isCurrent && "ring-2 ring-primary ring-offset-2",
-                    isCompleted && "opacity-75"
+                    "w-16 h-16 rounded-lg flex flex-col items-center justify-center gap-0.5 relative transition-all",
+                    !isLocked && "hover:-translate-y-1 hover:shadow-lg",
+                    isCurrent && !isLocked && "ring-2 ring-primary ring-offset-2",
+                    isLocked && "cursor-not-allowed saturate-[0.6] brightness-95"
                   )}
                   style={{
                     backgroundColor: bookColor,
                     color: textColor,
-                    order: row * COLS + col
+                    gridColumn: col + 1,
+                    gridRow: row + 1
                   }}
-                  onClick={() => selectChapterFromOverview(idx)}
+                  onClick={() => !isLocked && selectChapterFromOverview(idx)}
+                  disabled={isLocked}
                 >
-                  <span className="text-lg font-bold">{chapter.chapter}</span>
-                  {isCurrent && (
+                  {isLocked ? (
+                    <Lock className="w-5 h-5 opacity-60" />
+                  ) : (
+                    <span className="text-lg font-bold">{chapterNum}</span>
+                  )}
+                  {isCurrent && !isLocked && (
                     <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-gradient-to-br from-yellow-400 to-amber-500 text-white flex items-center justify-center shadow">
                       <Star className="w-3 h-3" fill="currentColor" />
                     </div>
                   )}
-                  {isCompleted && (
+                  {isCompleted && !isLocked && (
                     <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-gradient-to-br from-green-500 to-green-600 text-white flex items-center justify-center shadow">
                       <Check className="w-3 h-3" />
                     </div>
                   )}
-                  <span className="text-[10px] font-medium opacity-70">{verseCount}v</span>
+                  {isLocked && (
+                    <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-stone-400/70 dark:bg-stone-500/70 text-white flex items-center justify-center">
+                      <Lock className="w-2.5 h-2.5" />
+                    </div>
+                  )}
+                  {!isLocked && <span className="text-[10px] font-medium opacity-70">{verseCount}v</span>}
                 </button>
               )
             })}
+            </div>
           </div>
         </Card>
 
@@ -507,6 +858,45 @@ function App() {
     )
   }
 
+  // Sparkle component for correct answers
+  const Sparkles = ({ show }: { show: boolean }) => {
+    if (!show) return null
+    const sparkleColors = ['#fbbf24', '#34d399', '#60a5fa', '#f472b6', '#a78bfa']
+    return (
+      <div className="absolute inset-0 pointer-events-none overflow-visible">
+        {[...Array(8)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute animate-sparkle"
+            style={{
+              left: `${20 + Math.random() * 60}%`,
+              top: `${30 + Math.random() * 40}%`,
+              animationDelay: `${i * 0.1}s`,
+            }}
+          >
+            <Star
+              className="w-4 h-4"
+              fill={sparkleColors[i % sparkleColors.length]}
+              color={sparkleColors[i % sparkleColors.length]}
+            />
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  // XP popup component
+  const XPPopup = ({ show }: { show: boolean }) => {
+    if (!show) return null
+    return (
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+        <div className="animate-xp-float text-2xl font-bold text-amber-500 drop-shadow-lg">
+          +10 XP
+        </div>
+      </div>
+    )
+  }
+
   const QuizView = () => (
     <div className="flex-1 flex flex-col animate-in fade-in">
       <div className="flex items-center gap-4 py-4 mb-8">
@@ -525,37 +915,44 @@ function App() {
         </div>
       )}
 
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col relative">
         <p className="text-xl font-medium mb-8">{currentQuestion?.question}</p>
+
+        {/* Sparkles and XP popup for correct answers */}
+        <Sparkles show={quizState.showResult && quizState.isCorrect} />
+        <XPPopup show={quizState.showResult && quizState.isCorrect} />
 
         <div className="flex flex-col gap-3">
           {currentQuestion?.options.map((option) => {
             const isSelected = quizState.selectedAnswer === option.letter
             const isCorrect = quizState.showResult && isSelected && quizState.isCorrect
             const isIncorrect = quizState.showResult && isSelected && !quizState.isCorrect
+            const isCorrectAnswer = quizState.showResult && option.letter === currentQuestion.correctAnswer
 
             return (
               <button
                 key={option.letter}
                 className={cn(
-                  "p-4 rounded-lg border-2 text-left flex items-start gap-4 transition-all hover:translate-x-1",
-                  !quizState.showResult && "hover:border-primary hover:bg-muted/50",
-                  isCorrect && "border-green-500 bg-green-500/10",
-                  isIncorrect && "border-red-500 bg-red-500/10",
-                  !isSelected && quizState.showResult && "opacity-60"
+                  "p-4 rounded-lg border-2 text-left flex items-start gap-4 transition-all relative",
+                  !quizState.showResult && "hover:translate-x-1 hover:border-primary hover:bg-muted/50",
+                  isCorrect && "border-green-500 bg-green-500/10 animate-correct-pulse",
+                  isIncorrect && "border-red-500 bg-red-500/10 animate-wrong-shake",
+                  isCorrectAnswer && !isSelected && "border-green-500/50 bg-green-500/5",
+                  !isSelected && !isCorrectAnswer && quizState.showResult && "opacity-40"
                 )}
                 onClick={() => selectAnswer(option.letter)}
                 disabled={quizState.showResult}
               >
                 <span
                   className={cn(
-                    "w-8 h-8 rounded-lg flex items-center justify-center font-semibold text-sm flex-shrink-0",
-                    isCorrect && "bg-green-500 text-white",
-                    isIncorrect && "bg-red-500 text-white",
-                    !isCorrect && !isIncorrect && "bg-muted text-muted-foreground"
+                    "w-8 h-8 rounded-lg flex items-center justify-center font-semibold text-sm flex-shrink-0 transition-all",
+                    isCorrect && "bg-green-500 text-white animate-glow-correct",
+                    isIncorrect && "bg-red-500 text-white animate-glow-wrong",
+                    isCorrectAnswer && !isSelected && "bg-green-500/70 text-white",
+                    !isCorrect && !isIncorrect && !isCorrectAnswer && "bg-muted text-muted-foreground"
                   )}
                 >
-                  {option.letter}
+                  {isCorrect ? <Check className="w-4 h-4" /> : isIncorrect ? <X className="w-4 h-4" /> : option.letter}
                 </span>
                 <span className="flex-1 leading-relaxed">{option.text}</span>
               </button>
@@ -566,23 +963,30 @@ function App() {
         {quizState.showResult && (
           <div
             className={cn(
-              "flex items-center gap-3 p-4 rounded-lg font-semibold mt-8 animate-in zoom-in-95",
-              quizState.isCorrect ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600"
+              "flex items-center justify-center gap-3 p-5 rounded-xl font-bold mt-8 animate-result-pop",
+              quizState.isCorrect
+                ? "bg-gradient-to-r from-green-500/20 to-emerald-500/20 text-green-600 dark:text-green-400 border border-green-500/30"
+                : "bg-gradient-to-r from-red-500/20 to-rose-500/20 text-red-600 dark:text-red-400 border border-red-500/30"
             )}
           >
-            {quizState.isCorrect ? (
-              <Check className="w-6 h-6" />
-            ) : (
-              <X className="w-6 h-6" />
-            )}
-            <span>{quizState.isCorrect ? 'Correct!' : 'Not quite'}</span>
+            <div className={cn(
+              "w-10 h-10 rounded-full flex items-center justify-center",
+              quizState.isCorrect ? "bg-green-500" : "bg-red-500"
+            )}>
+              {quizState.isCorrect ? (
+                <Check className="w-6 h-6 text-white" />
+              ) : (
+                <X className="w-6 h-6 text-white" />
+              )}
+            </div>
+            <span className="text-xl">{quizState.isCorrect ? 'Correct!' : 'Not quite...'}</span>
           </div>
         )}
       </div>
 
       {quizState.showResult && (
         <div className="py-8 flex justify-center">
-          <Button size="lg" onClick={nextQuestion}>
+          <Button size="lg" onClick={nextQuestion} className="animate-in fade-in slide-in-from-bottom-4 duration-300">
             Continue
           </Button>
         </div>
@@ -606,9 +1010,41 @@ function App() {
     }} />
   }
 
+  // Render profile page if showProfile is true
+  if (showProfile && user) {
+    return (
+      <div className="max-w-[680px] mx-auto px-6 py-12 min-h-screen flex flex-col relative">
+        <ProfilePage user={user} onBack={() => setShowProfile(false)} />
+      </div>
+    )
+  }
+
   return (
-    <div className="max-w-[680px] mx-auto px-6 py-12 min-h-screen flex flex-col">
+    <div className="max-w-[680px] mx-auto px-6 py-12 min-h-screen flex flex-col relative">
       {showConfetti && <Confetti />}
+
+      {/* Reward celebration modal */}
+      <RewardRenderer
+        reward={currentReward}
+        isOpen={isRewardOpen}
+        onClose={dismissReward}
+      />
+
+      {/* Splash screen overlay */}
+      {introPhase !== 'done' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background pointer-events-none">
+          <div
+            className={cn(
+              "flex items-center gap-2 transition-all duration-500 ease-out",
+              introPhase === 'splash' && "scale-[2.5]",
+              introPhase === 'animating' && "scale-100 -translate-y-[calc(50vh-4rem)]"
+            )}
+          >
+            <h1 className="text-2xl font-semibold tracking-tight">Scrolily</h1>
+            <ScrolilyLogo size={28} className="text-purple-400" />
+          </div>
+        </div>
+      )}
 
       {quizMode ? (
         quizState.completed ? <QuizComplete /> : <QuizView />
@@ -618,15 +1054,21 @@ function App() {
             <Button
               variant="outline"
               size="icon"
-              className="absolute top-0 left-0"
+              className={cn(
+                "absolute top-0 left-0 transition-opacity duration-300",
+                introPhase !== 'done' ? "opacity-0" : "opacity-100"
+              )}
               onClick={toggleTheme}
               aria-label={isDarkMode() ? 'Switch to light mode' : 'Switch to dark mode'}
             >
               {isDarkMode() ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </Button>
-            <div className="absolute top-0 right-0">
-              {user ? (
-                <UserButton user={user} />
+            <div className={cn(
+              "absolute top-0 right-0 transition-opacity duration-300",
+              introPhase !== 'done' ? "opacity-0" : "opacity-100"
+            )}>
+              {userForComponents ? (
+                <UserButton user={userForComponents} onProfileClick={() => setShowProfile(true)} />
               ) : debugMode ? (
                 <Button
                   variant="outline"
@@ -640,14 +1082,23 @@ function App() {
                 </Button>
               ) : null}
             </div>
-            <h1 className="text-2xl font-semibold tracking-tight">Seraph</h1>
-            <p className="text-sm text-muted-foreground mt-2 uppercase tracking-wider">
-              Berean Standard Bible
-            </p>
-            {user && <StreakXPDisplay user={user} />}
+            <h1 className={cn(
+              "text-2xl font-semibold tracking-tight inline-flex items-center gap-2",
+              introPhase !== 'done' && "invisible"
+            )}>
+              Scrolily
+              <ScrolilyLogo size={28} className="text-purple-400" />
+            </h1>
+            {userForComponents && <StreakXPDisplay user={userForComponents} className={cn(
+              "transition-opacity duration-300",
+              introPhase !== 'done' ? "opacity-0" : "opacity-100"
+            )} />}
           </header>
 
-          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as typeof viewMode)} className="mb-6">
+          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as typeof viewMode)} className={cn(
+            "mb-6 transition-all duration-300",
+            introPhase !== 'done' ? "opacity-0 translate-y-2" : "opacity-100 translate-y-0"
+          )}>
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="reading" className="flex items-center gap-2">
                 <BookOpen className="w-4 h-4" />
@@ -669,8 +1120,12 @@ function App() {
             </TabsList>
           </Tabs>
 
+          <div className={cn(
+            "flex-1 flex flex-col transition-all duration-300 delay-75",
+            introPhase !== 'done' ? "opacity-0 translate-y-2" : "opacity-100 translate-y-0"
+          )}>
           {viewMode === 'groups' ? (
-            <GroupsPage currentUserId={user?._id} />
+            <GroupsPage currentUserId={user?.id} />
           ) : viewMode === 'overview' ? (
             <>
               <div className="flex justify-center mb-6">
@@ -713,86 +1168,108 @@ function App() {
 
                 <Select
                   value={position.chapter.toString()}
-                  onValueChange={(v) => setChapterIndex(Number(v))}
+                  onValueChange={(v) => {
+                    const idx = Number(v)
+                    const chapterNum = chapters[idx]?.chapter || idx + 1
+                    if (isChapterUnlocked(chapterNum)) {
+                      setChapterIndex(idx)
+                    }
+                  }}
                 >
                   <SelectTrigger className="w-[140px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {chapters.map((chapter: { chapter: number }, idx: number) => (
-                      <SelectItem key={idx} value={idx.toString()}>
-                        Chapter {chapter.chapter}
-                      </SelectItem>
-                    ))}
+                    {chapters.map((chapter: { chapter: number }, idx: number) => {
+                      const isLocked = !isChapterUnlocked(chapter.chapter)
+                      return (
+                        <SelectItem
+                          key={idx}
+                          value={idx.toString()}
+                          disabled={isLocked}
+                          className={cn(isLocked && "opacity-50")}
+                        >
+                          {isLocked && <Lock className="inline-block w-3 h-3 mr-1" />}Chapter {chapter.chapter}
+                        </SelectItem>
+                      )
+                    })}
                   </SelectContent>
                 </Select>
 
-                <Select
-                  value={position.verse.toString()}
-                  onValueChange={(v) => setVerseIndex(Number(v))}
-                >
-                  <SelectTrigger className="w-[120px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {verses.map((verse: { verse: number }, idx: number) => (
-                      <SelectItem key={idx} value={idx.toString()}>
-                        Verse {verse.verse}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
 
-              <Card className="flex-1 p-10 mb-8 flex flex-col justify-center min-h-[280px]">
-                <h2 className="text-xs font-semibold text-primary mb-6 text-center uppercase tracking-widest">
-                  {currentVerse?.name}
+              <Card className="flex-1 pt-0 px-8 pb-8 mb-8 overflow-y-auto max-h-[60vh]">
+                <h2 className="text-xs font-semibold text-primary mb-6 text-center uppercase tracking-widest sticky top-0 bg-card pt-8 pb-2 -mx-8 px-8">
+                  {currentBook?.name} {currentChapter?.chapter}
                 </h2>
-                <p className="font-serif text-xl leading-relaxed text-center">
-                  {currentVerse?.text}
-                </p>
+                <div className="font-serif text-lg leading-relaxed space-y-4">
+                  {verses.map((verse: { verse: number; text: string }, idx: number) => (
+                    <p key={idx}>
+                      <span className="text-xs font-sans font-semibold text-primary align-super mr-1">
+                        {verse.verse}
+                      </span>
+                      {verse.text}
+                    </p>
+                  ))}
+                </div>
               </Card>
 
-              {hasQuestions && (
-                <div className="flex justify-center py-4 mb-4">
-                  <Button
-                    size="lg"
-                    className="bg-gradient-to-r from-primary to-indigo-500 hover:from-primary/90 hover:to-indigo-500/90"
-                    onClick={startQuiz}
-                  >
-                    Practice Questions
-                  </Button>
-                </div>
-              )}
+              <div className="flex gap-2 justify-center mb-8">
+                <Button variant="outline" className="min-w-[140px]" onClick={goToPrevChapter}>
+                  <ChevronLeft className="w-4 h-4" />
+                  Prev Chapter
+                </Button>
+                {/* Quiz/Navigation logic */}
+                {(() => {
+                  const currentChapterNum = currentChapter?.chapter || 1
+                  const isCurrentChapterCompleted = completedChapters.includes(currentChapterNum)
 
-              <div className="flex flex-col gap-2 mb-8">
-                <div className="flex gap-2 justify-center">
-                  <Button variant="outline" className="min-w-[140px]" onClick={goToPrevChapter}>
-                    <ChevronLeft className="w-4 h-4" />
-                    Prev Chapter
-                  </Button>
-                  <Button variant="outline" className="min-w-[140px]" onClick={goToNextChapter}>
-                    Next Chapter
-                    <ChevronRight className="w-4 h-4" />
-                  </Button>
-                </div>
-                <div className="flex gap-2 justify-center">
-                  <Button variant="outline" className="min-w-[140px]" onClick={goToPrevVerse}>
-                    <ChevronLeft className="w-4 h-4" />
-                    Prev Verse
-                  </Button>
-                  <Button variant="outline" className="min-w-[140px]" onClick={goToNextVerse}>
-                    Next Verse
-                    <ChevronRight className="w-4 h-4" />
-                  </Button>
-                </div>
+                  if (isCurrentChapterCompleted && hasQuestions) {
+                    // Chapter completed: show Retake Quiz in middle + Next Chapter
+                    return (
+                      <>
+                        <Button
+                          variant="outline"
+                          className="min-w-[120px]"
+                          onClick={startQuiz}
+                        >
+                          Retake Quiz
+                        </Button>
+                        <Button variant="outline" className="min-w-[140px]" onClick={goToNextChapter}>
+                          Next Chapter
+                          <ChevronRight className="w-4 h-4" />
+                        </Button>
+                      </>
+                    )
+                  } else if (!isCurrentChapterCompleted && hasQuestions && isAuthenticated) {
+                    // Chapter not completed, has quiz: show Take the Quiz (replaces Next)
+                    return (
+                      <Button
+                        className="min-w-[140px] bg-gradient-to-r from-primary to-indigo-500 hover:from-primary/90 hover:to-indigo-500/90"
+                        onClick={startQuiz}
+                      >
+                        Take the Quiz
+                        <ChevronRight className="w-4 h-4" />
+                      </Button>
+                    )
+                  } else {
+                    // No quiz or not authenticated: just show Next Chapter
+                    return (
+                      <Button variant="outline" className="min-w-[140px]" onClick={goToNextChapter}>
+                        Next Chapter
+                        <ChevronRight className="w-4 h-4" />
+                      </Button>
+                    )
+                  }
+                })()}
               </div>
 
               <footer className="text-center text-xs text-muted-foreground border-t pt-4">
-                {currentBook?.name} &middot; Chapter {currentChapter?.chapter} of {chapters.length} &middot; Verse {currentVerse?.verse} of {verses.length}
+                {currentBook?.name} &middot; Chapter {currentChapter?.chapter} of {chapters.length} &middot; {verses.length} verses
               </footer>
             </>
           )}
+          </div>
         </>
       )}
     </div>

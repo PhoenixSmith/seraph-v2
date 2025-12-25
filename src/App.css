@@ -1,6 +1,6 @@
 /* Confetti animation */
 .animate-confetti {
-  animation: confetti 4s ease-out forwards;
+  animation: confetti 2s ease-out forwards;
 }
 
 @keyframes confetti {

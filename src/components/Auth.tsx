@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { useAuthActions } from "@convex-dev/auth/react"
+import { useAuthActions } from '@/hooks/useSupabase'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,15 +14,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Mail, LogOut, Star, Flame } from 'lucide-react'
+import { Mail, LogOut, Star, Flame, User as UserIcon, Palette } from 'lucide-react'
+import { UserAvatar, AvatarEditor, DEFAULT_AVATAR_CONFIG, type AvatarConfig } from '@/components/avatar'
+import { updateAvatarConfig } from '@/lib/api'
 
-interface User {
-  _id: string
-  name?: string
-  email?: string
-  image?: string
-  totalXp?: number
-  currentStreak?: number
+export interface User {
+  id: string
+  name?: string | null
+  email?: string | null
+  avatar_url?: string | null
+  avatar_config?: AvatarConfig
+  total_xp?: number
+  current_streak?: number
 }
 
 export function Auth({ onSkip }: { onSkip?: () => void }) {
@@ -102,7 +105,7 @@ export function Auth({ onSkip }: { onSkip?: () => void }) {
     <div className="min-h-screen flex items-center justify-center p-4 bg-background">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-3xl">Seraph</CardTitle>
+          <CardTitle className="text-3xl">Scrolily</CardTitle>
           <CardDescription>
             {isSignUp ? 'Create an account to start your journey' : 'Sign in to continue your journey'}
           </CardDescription>
@@ -195,12 +198,12 @@ export function Auth({ onSkip }: { onSkip?: () => void }) {
   )
 }
 
-export function StreakXPDisplay({ user }: { user: User }) {
-  const totalXp = user?.totalXp ?? 0
-  const currentStreak = user?.currentStreak ?? 0
+export function StreakXPDisplay({ user, className }: { user: User; className?: string }) {
+  const totalXp = user?.total_xp ?? 0
+  const currentStreak = user?.current_streak ?? 0
 
   return (
-    <div className="flex justify-center gap-2 mt-4">
+    <div className={cn("flex justify-center gap-2 mt-4", className)}>
       <Badge variant="secondary" className="flex items-center gap-1.5 px-3 py-1">
         <Star className="h-3.5 w-3.5 text-amber-500" fill="currentColor" />
         <span>{totalXp} XP</span>
@@ -213,39 +216,94 @@ export function StreakXPDisplay({ user }: { user: User }) {
   )
 }
 
-export function UserButton({ user }: { user: User }) {
+interface UserButtonProps {
+  user: User
+  onProfileClick?: () => void
+}
+
+export function UserButton({ user, onProfileClick }: UserButtonProps) {
   const { signOut } = useAuthActions()
+  const [avatarEditorOpen, setAvatarEditorOpen] = useState(false)
+  const [avatarConfig, setAvatarConfig] = useState<AvatarConfig>(user.avatar_config ?? DEFAULT_AVATAR_CONFIG)
 
   const displayName = user?.name || user?.email || 'User'
-  const initial = displayName.charAt(0).toUpperCase()
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-          <Avatar className="h-9 w-9">
-            <AvatarImage src={user?.image} alt={displayName} />
-            <AvatarFallback>{initial}</AvatarFallback>
-          </Avatar>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56" align="end" forceMount>
-        <DropdownMenuLabel className="font-normal">
-          <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{displayName}</p>
-            {user?.email && (
-              <p className="text-xs leading-none text-muted-foreground">
-                {user.email}
-              </p>
-            )}
-          </div>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => signOut()}>
-          <LogOut className="mr-2 h-4 w-4" />
-          <span>Sign out</span>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" className="relative h-9 w-9 rounded-full p-0">
+            <UserAvatar size="sm" editable={false} config={avatarConfig} className="h-9 w-9" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-56" align="end" forceMount>
+          <DropdownMenuLabel className="font-normal">
+            <div className="flex flex-col space-y-1">
+              <p className="text-sm font-medium leading-none">{displayName}</p>
+              {user?.email && (
+                <p className="text-xs leading-none text-muted-foreground">
+                  {user.email}
+                </p>
+              )}
+            </div>
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => setAvatarEditorOpen(true)}>
+            <Palette className="mr-2 h-4 w-4" />
+            <span>Customize Avatar</span>
+          </DropdownMenuItem>
+          {onProfileClick && (
+            <DropdownMenuItem onClick={onProfileClick}>
+              <UserIcon className="mr-2 h-4 w-4" />
+              <span>Profile</span>
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem onClick={() => signOut()}>
+            <LogOut className="mr-2 h-4 w-4" />
+            <span>Sign out</span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {avatarEditorOpen && (
+        <AvatarEditorTrigger
+          initialConfig={avatarConfig}
+          onClose={() => setAvatarEditorOpen(false)}
+          onSave={setAvatarConfig}
+        />
+      )}
+    </>
+  )
+}
+
+// Helper component to trigger the avatar editor
+function AvatarEditorTrigger({
+  initialConfig,
+  onClose,
+  onSave
+}: {
+  initialConfig: AvatarConfig
+  onClose: () => void
+  onSave: (config: AvatarConfig) => void
+}) {
+  const [config, setConfig] = useState<AvatarConfig>(initialConfig)
+
+  const handleConfigChange = async (newConfig: AvatarConfig) => {
+    setConfig(newConfig)
+    onSave(newConfig)
+    try {
+      await updateAvatarConfig(newConfig)
+    } catch (err) {
+      console.error('Failed to save avatar config:', err)
+    }
+  }
+
+  return (
+    <AvatarEditor
+      open={true}
+      onOpenChange={(open: boolean) => !open && onClose()}
+      config={config}
+      onConfigChange={handleConfigChange}
+    />
   )
 }

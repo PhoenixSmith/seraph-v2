@@ -1,11 +1,35 @@
 @import "tailwindcss";
 
 @theme {
+  --font-sans: "Open Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Crimson Pro", ui-serif, Georgia, serif;
+
   --radius-lg: 0.5rem;
   --radius-md: calc(var(--radius-lg) - 2px);
   --radius-sm: calc(var(--radius-lg) - 4px);
 
-  --animate-confetti: confetti 4s ease-out forwards;
+  --animate-confetti: confetti 2s ease-out forwards;
+  --animate-dash: dash 20s linear infinite;
+
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
 }
 
 @keyframes confetti {
@@ -18,6 +42,381 @@
     opacity: 0;
   }
 }
+
+/* Gamified quiz answer effects */
+@keyframes correct-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 12px rgba(34, 197, 94, 0);
+  }
+}
+
+@keyframes correct-bounce {
+  0%, 100% {
+    transform: scale(1);
+  }
+  25% {
+    transform: scale(1.02);
+  }
+  50% {
+    transform: scale(0.98);
+  }
+  75% {
+    transform: scale(1.01);
+  }
+}
+
+@keyframes wrong-shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  10%, 30%, 50%, 70%, 90% {
+    transform: translateX(-6px);
+  }
+  20%, 40%, 60%, 80% {
+    transform: translateX(6px);
+  }
+}
+
+@keyframes wrong-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+  }
+}
+
+@keyframes sparkle-float {
+  0% {
+    transform: translateY(0) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-60px) scale(0) rotate(180deg);
+    opacity: 0;
+  }
+}
+
+@keyframes xp-float {
+  0% {
+    transform: translateY(0) scale(0.5);
+    opacity: 0;
+  }
+  20% {
+    transform: translateY(-10px) scale(1.1);
+    opacity: 1;
+  }
+  80% {
+    transform: translateY(-40px) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-60px) scale(0.8);
+    opacity: 0;
+  }
+}
+
+@keyframes result-pop {
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  70% {
+    transform: scale(0.95);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes glow-correct {
+  0%, 100% {
+    filter: drop-shadow(0 0 8px rgba(34, 197, 94, 0.6));
+  }
+  50% {
+    filter: drop-shadow(0 0 16px rgba(34, 197, 94, 0.9));
+  }
+}
+
+@keyframes glow-wrong {
+  0%, 100% {
+    filter: drop-shadow(0 0 6px rgba(239, 68, 68, 0.5));
+  }
+  50% {
+    filter: drop-shadow(0 0 12px rgba(239, 68, 68, 0.8));
+  }
+}
+
+.animate-correct-pulse {
+  animation: correct-pulse 0.6s ease-out, correct-bounce 0.5s ease-out;
+}
+
+.animate-wrong-shake {
+  animation: wrong-shake 0.5s ease-out, wrong-pulse 0.6s ease-out;
+}
+
+.animate-sparkle {
+  animation: sparkle-float 0.8s ease-out forwards;
+}
+
+.animate-xp-float {
+  animation: xp-float 1.2s ease-out forwards;
+}
+
+.animate-result-pop {
+  animation: result-pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.animate-glow-correct {
+  animation: glow-correct 1.5s ease-in-out infinite;
+}
+
+.animate-glow-wrong {
+  animation: glow-wrong 1s ease-in-out 2;
+}
+
+/* ========================================
+   REWARD MODAL CELEBRATION ANIMATIONS
+   ======================================== */
+
+/* Main modal pop-in effect */
+@keyframes reward-pop {
+  0% {
+    transform: scale(0.3) rotate(-10deg);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.1) rotate(2deg);
+  }
+  80% {
+    transform: scale(0.95) rotate(-1deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+.animate-reward-pop {
+  animation: reward-pop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+/* Modal exit animation */
+@keyframes reward-exit {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.8) translateY(20px);
+    opacity: 0;
+  }
+}
+
+.animate-reward-exit {
+  animation: reward-exit 0.2s ease-out forwards;
+}
+
+/* Confetti falling animation */
+@keyframes reward-confetti {
+  0% {
+    transform: translateY(-20px) rotate(0deg) scale(1);
+    opacity: 1;
+  }
+  25% {
+    transform: translateY(25vh) rotate(180deg) translateX(20px) scale(0.9);
+  }
+  50% {
+    transform: translateY(50vh) rotate(360deg) translateX(-10px) scale(0.8);
+  }
+  75% {
+    transform: translateY(75vh) rotate(540deg) translateX(15px) scale(0.6);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(100vh) rotate(720deg) translateX(-5px) scale(0.4);
+    opacity: 0;
+  }
+}
+
+.animate-reward-confetti {
+  animation: reward-confetti 3s ease-out forwards;
+}
+
+/* Sparkle animation */
+@keyframes reward-sparkle {
+  0%, 100% {
+    transform: scale(0) rotate(0deg);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2) rotate(180deg);
+    opacity: 1;
+  }
+}
+
+.animate-reward-sparkle {
+  animation: reward-sparkle 2s ease-in-out infinite;
+}
+
+/* Pulsing glow effect */
+@keyframes reward-glow {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.05);
+  }
+}
+
+.animate-reward-glow {
+  animation: reward-glow 2s ease-in-out infinite;
+}
+
+/* Icon pulse effect */
+@keyframes reward-icon-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+.animate-reward-icon-pulse {
+  animation: reward-icon-pulse 1.5s ease-in-out infinite;
+}
+
+/* Bouncing header text */
+@keyframes reward-bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  25% {
+    transform: translateY(-4px);
+  }
+  75% {
+    transform: translateY(2px);
+  }
+}
+
+.animate-reward-bounce {
+  animation: reward-bounce 1s ease-in-out infinite;
+}
+
+/* XP burst animation */
+@keyframes reward-xp-burst {
+  0% {
+    transform: scale(0) translateY(20px);
+    opacity: 0;
+  }
+  40% {
+    transform: scale(1.3) translateY(0);
+    opacity: 1;
+  }
+  60% {
+    transform: scale(0.9);
+  }
+  80% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-reward-xp-burst {
+  animation: reward-xp-burst 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  animation-delay: 0.3s;
+  opacity: 0;
+}
+
+/* Spinning gradient ring */
+@keyframes reward-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-reward-spin {
+  animation: reward-spin 8s linear infinite;
+}
+
+/* Star decorations with staggered timing */
+@keyframes reward-star-float {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: translateY(-6px) scale(1.2);
+    opacity: 0.8;
+  }
+}
+
+.animate-reward-star-1 {
+  animation: reward-star-float 1.5s ease-in-out infinite;
+}
+
+.animate-reward-star-2 {
+  animation: reward-star-float 1.5s ease-in-out infinite;
+  animation-delay: 0.3s;
+}
+
+.animate-reward-star-3 {
+  animation: reward-star-float 1.5s ease-in-out infinite;
+  animation-delay: 0.6s;
+}
+
+/* Achievement slide-in from bottom */
+@keyframes reward-achievement-slide {
+  0% {
+    transform: translateY(30px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-reward-achievement-slide {
+  animation: reward-achievement-slide 0.5s ease-out forwards;
+  animation-delay: 0.6s;
+  opacity: 0;
+}
+
+/* Fade in animation */
+@keyframes reward-fade-in {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.animate-reward-fade-in {
+  animation: reward-fade-in 0.4s ease-out forwards;
+  opacity: 0;
+}
+
+/* ========================================
+   END REWARD MODAL ANIMATIONS
+   ======================================== */
 
 /* shadcn CSS variables */
 :root {
@@ -63,4 +462,14 @@
   --border: 217.2 32.6% 17.5%;
   --input: 217.2 32.6% 17.5%;
   --ring: 224.3 76.3% 48%;
+}
+
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: var(--font-sans);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
 }

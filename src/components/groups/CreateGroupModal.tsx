@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { useMutation } from 'convex/react'
-import { api } from '../../../convex/_generated/api'
+import * as api from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Dialog,
   DialogContent,
@@ -11,20 +11,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Id } from '../../../convex/_generated/dataModel'
 
 interface CreateGroupModalProps {
   isOpen: boolean
   onClose: () => void
-  onCreated?: (groupId: Id<"groups">) => void
+  onCreated?: (groupId: string) => void
 }
 
 export function CreateGroupModal({ isOpen, onClose, onCreated }: CreateGroupModalProps) {
   const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-
-  const createGroup = useMutation(api.groups.createGroup)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -43,8 +41,9 @@ export function CreateGroupModal({ isOpen, onClose, onCreated }: CreateGroupModa
 
     setIsLoading(true)
     try {
-      const groupId = await createGroup({ name: trimmedName })
+      const groupId = await api.createGroup(trimmedName, description.trim() || undefined)
       setName('')
+      setDescription('')
       onCreated?.(groupId)
       onClose()
     } catch (err) {
@@ -57,6 +56,7 @@ export function CreateGroupModal({ isOpen, onClose, onCreated }: CreateGroupModa
   const handleOpenChange = (open: boolean) => {
     if (!open) {
       setName('')
+      setDescription('')
       setError('')
       onClose()
     }
@@ -84,6 +84,20 @@ export function CreateGroupModal({ isOpen, onClose, onCreated }: CreateGroupModa
                 placeholder="Enter group name"
                 maxLength={50}
                 autoFocus
+                disabled={isLoading}
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="groupDescription" className="text-sm font-medium">
+                Description <span className="text-muted-foreground">(optional)</span>
+              </label>
+              <Textarea
+                id="groupDescription"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="What's this group about?"
+                maxLength={500}
+                rows={3}
                 disabled={isLoading}
               />
             </div>

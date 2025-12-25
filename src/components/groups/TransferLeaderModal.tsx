@@ -1,8 +1,7 @@
 import { useState } from 'react'
-import { useMutation } from 'convex/react'
-import { api } from '../../../convex/_generated/api'
+import * as api from '@/lib/api'
+import type { AvatarConfig } from '@/lib/api'
 import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   Dialog,
   DialogContent,
@@ -11,21 +10,23 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Id } from '../../../convex/_generated/dataModel'
 import { cn } from '@/lib/utils'
+import { UserAvatar } from '@/components/avatar/UserAvatar'
 
 interface Member {
-  userId: Id<"users">
-  name?: string
-  image?: string
+  user_id: string
+  name?: string | null
+  avatar_url?: string | null
+  avatar_config: AvatarConfig
 }
 
 interface TransferLeaderModalProps {
   isOpen: boolean
   onClose: () => void
-  groupId: Id<"groups">
+  groupId: string
   members?: Member[]
-  currentUserId: Id<"users">
+  currentUserId?: string
+  onTransferred?: () => void
 }
 
 export function TransferLeaderModal({
@@ -33,15 +34,14 @@ export function TransferLeaderModal({
   onClose,
   groupId,
   members,
-  currentUserId
+  currentUserId,
+  onTransferred
 }: TransferLeaderModalProps) {
-  const [selectedUserId, setSelectedUserId] = useState<Id<"users"> | null>(null)
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const transferLeadership = useMutation(api.groups.transferLeadership)
-
-  const eligibleMembers = members?.filter((m) => m.userId !== currentUserId) || []
+  const eligibleMembers = members?.filter((m) => m.user_id !== currentUserId) || []
 
   const handleTransfer = async () => {
     if (!selectedUserId) {
@@ -52,7 +52,8 @@ export function TransferLeaderModal({
     setIsLoading(true)
     setError('')
     try {
-      await transferLeadership({ groupId, newLeaderId: selectedUserId })
+      await api.transferLeadership(groupId, selectedUserId)
+      onTransferred?.()
       onClose()
     } catch (err) {
       setError((err as Error).message || 'Failed to transfer leadership')
@@ -87,10 +88,10 @@ export function TransferLeaderModal({
           <div className="max-h-64 overflow-y-auto space-y-2 py-4">
             {eligibleMembers.map((member) => (
               <label
-                key={member.userId}
+                key={member.user_id}
                 className={cn(
                   "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors",
-                  selectedUserId === member.userId
+                  selectedUserId === member.user_id
                     ? "border-primary bg-primary/5"
                     : "border-border hover:border-border/80"
                 )}
@@ -98,18 +99,13 @@ export function TransferLeaderModal({
                 <input
                   type="radio"
                   name="newLeader"
-                  value={member.userId}
-                  checked={selectedUserId === member.userId}
-                  onChange={() => setSelectedUserId(member.userId)}
+                  value={member.user_id}
+                  checked={selectedUserId === member.user_id}
+                  onChange={() => setSelectedUserId(member.user_id)}
                   disabled={isLoading}
                   className="accent-primary"
                 />
-                <Avatar className="h-9 w-9">
-                  <AvatarImage src={member.image} />
-                  <AvatarFallback>
-                    {(member.name || 'U').charAt(0).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
+                <UserAvatar size="sm" editable={false} config={member.avatar_config} />
                 <span className="font-medium">{member.name || 'Unknown User'}</span>
               </label>
             ))}
