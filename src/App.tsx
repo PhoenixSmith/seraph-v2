@@ -676,16 +676,23 @@ function App() {
     const bookColor = getPastelColor(currentBook?.name || 'Genesis')
     const textColor = getDarkerColor(currentBook?.name || 'Genesis')
     const progressPercent = Math.round((completedChapters.length / totalChapters) * 100)
-    const [shouldAnimate, setShouldAnimate] = useState(false)
     const [shouldAnimateTiles, setShouldAnimateTiles] = useState(true)
-    const prevProgressRef = useRef(progressPercent)
     const prevBookRef = useRef(currentBook?.name)
 
+    // Track progress changes - only animate AFTER initial mount
+    const [progressAnimating, setProgressAnimating] = useState(false)
+    const prevProgressRef = useRef(progressPercent)
+    const hasMountedRef = useRef(false)
+
     useLayoutEffect(() => {
+      if (!hasMountedRef.current) {
+        hasMountedRef.current = true
+        return
+      }
       if (prevProgressRef.current !== progressPercent) {
-        setShouldAnimate(true)
         prevProgressRef.current = progressPercent
-        const timer = setTimeout(() => setShouldAnimate(false), 800)
+        setProgressAnimating(true)
+        const timer = setTimeout(() => setProgressAnimating(false), 1000)
         return () => clearTimeout(timer)
       }
     }, [progressPercent])
@@ -800,23 +807,33 @@ function App() {
               )
             })()}
             <div
-              key={shouldAnimate ? `container-${progressPercent}` : 'container-static'}
               className={cn(
                 "h-4 bg-stone-200 dark:bg-stone-800 rounded-full overflow-hidden",
-                shouldAnimate && "animate-progress-container-pop"
+                progressAnimating && "animate-progress-container-pop"
               )}
+              style={progressAnimating ? { animation: 'progress-container-pop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)' } : undefined}
             >
               <div
-                className={cn(
-                  "h-full rounded-full relative overflow-hidden progress-bar-animated",
-                  shouldAnimate && "animate-progress-celebrate-combo progress-shimmer-active"
-                )}
+                className="h-full rounded-full relative overflow-hidden"
                 style={{
                   width: `${progressPercent}%`,
                   background: `linear-gradient(90deg, ${textColor}, ${bookColor})`,
-                  transformOrigin: 'left'
+                  transformOrigin: 'left',
+                  transition: 'width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                  animation: progressAnimating ? 'progress-fill-spring 0.7s cubic-bezier(0.34, 1.56, 0.64, 1), progress-celebrate-combo 0.8s ease-out' : undefined
                 }}
-              />
+              >
+                {/* Shimmer overlay */}
+                {progressAnimating && (
+                  <div
+                    className="absolute inset-0 overflow-hidden rounded-full"
+                    style={{
+                      background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.6) 50%, transparent 100%)',
+                      animation: 'progress-shimmer-sweep 0.6s ease-out forwards'
+                    }}
+                  />
+                )}
+              </div>
             </div>
           </div>
         </div>
