@@ -25,15 +25,17 @@ import { cn } from '@/lib/utils'
 import bibleData from '../BSB.json'
 import questionsData from '../seraph-progress.json'
 
-// Animated number component with rolling digit effect
+// Animated number component with rolling digit effect and peppy pop
 function AnimatedNumber({ value, className, style }: { value: number; className?: string; style?: React.CSSProperties }) {
   const [displayValue, setDisplayValue] = useState(value)
   const [isAnimating, setIsAnimating] = useState(false)
+  const [popPhase, setPopPhase] = useState<'idle' | 'pop' | 'settle'>('idle')
   const prevValue = useRef(value)
 
   useLayoutEffect(() => {
     if (prevValue.current !== value) {
       setIsAnimating(true)
+      setPopPhase('pop')
       const startValue = prevValue.current
       const endValue = value
       const duration = 600
@@ -55,17 +57,33 @@ function AnimatedNumber({ value, className, style }: { value: number; className?
         }
       }
       requestAnimationFrame(animate)
+
+      // Pop animation phases
+      const popTimer = setTimeout(() => setPopPhase('settle'), 200)
+      const settleTimer = setTimeout(() => setPopPhase('idle'), 500)
+      return () => {
+        clearTimeout(popTimer)
+        clearTimeout(settleTimer)
+      }
     }
   }, [value])
 
+  const getTransform = () => {
+    switch (popPhase) {
+      case 'pop': return 'scale(1.25) translateY(-2px)'
+      case 'settle': return 'scale(1.05)'
+      default: return 'scale(1)'
+    }
+  }
+
   return (
     <span
-      className={className}
+      className={cn(className, isAnimating && "animate-progress-number-pop")}
       style={{
         ...style,
         display: 'inline-block',
-        transition: isAnimating ? 'transform 0.1s' : undefined,
-        transform: isAnimating ? 'scale(1.05)' : 'scale(1)'
+        transition: 'transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1)',
+        transform: getTransform()
       }}
     >
       {displayValue}%
@@ -406,6 +424,7 @@ function App() {
 
   const exitQuiz = useCallback((navigateToNext = false) => {
     setQuizMode(false)
+    setShowConfetti(false) // Kill confetti when exiting quiz
     setQuizState({
       questions: [],
       currentIndex: 0,
@@ -448,6 +467,11 @@ function App() {
   const getDarkerColor = useCallback((input: string) => {
     return getPastelColor(input, 0.7, 0.35)
   }, [getPastelColor])
+
+  // Book-specific colors for consistent styling across views
+  const bookColor = getPastelColor(currentBook?.name || 'Genesis')
+  const textColor = getDarkerColor(currentBook?.name || 'Genesis')
+  const darkerBorderColor = getPastelColor(currentBook?.name || 'Genesis', 0.6, 0.3)
 
   const selectChapterFromOverview = useCallback((chapterIdx: number) => {
     const chapterNum = chapters[chapterIdx]?.chapter || chapterIdx + 1
@@ -652,6 +676,30 @@ function App() {
     const bookColor = getPastelColor(currentBook?.name || 'Genesis')
     const textColor = getDarkerColor(currentBook?.name || 'Genesis')
     const progressPercent = Math.round((completedChapters.length / totalChapters) * 100)
+    const [shouldAnimate, setShouldAnimate] = useState(false)
+    const [shouldAnimateTiles, setShouldAnimateTiles] = useState(true)
+    const prevProgressRef = useRef(progressPercent)
+    const prevBookRef = useRef(currentBook?.name)
+
+    useLayoutEffect(() => {
+      if (prevProgressRef.current !== progressPercent) {
+        setShouldAnimate(true)
+        prevProgressRef.current = progressPercent
+        const timer = setTimeout(() => setShouldAnimate(false), 800)
+        return () => clearTimeout(timer)
+      }
+    }, [progressPercent])
+
+    // Animate tiles when book changes
+    useLayoutEffect(() => {
+      if (prevBookRef.current !== currentBook?.name) {
+        setShouldAnimateTiles(true)
+        prevBookRef.current = currentBook?.name
+        // Keep animation state for duration of staggered animation
+        const timer = setTimeout(() => setShouldAnimateTiles(false), 1500)
+        return () => clearTimeout(timer)
+      }
+    }, [currentBook?.name])
 
     const getGridPosition = (index: number) => {
       const row = Math.floor(index / COLS)
@@ -684,9 +732,10 @@ function App() {
             const from = getCenter(i)
             const to = getCenter(i + 1)
             const isCompletedPath = completedChapters.includes(i + 1)
+            const lineDelay = Math.min(i * 20, 500)
             return (
               <line
-                key={i}
+                key={`${currentBook?.name}-line-${i}`}
                 x1={from.x}
                 y1={from.y}
                 x2={to.x}
@@ -694,7 +743,11 @@ function App() {
                 strokeWidth="3"
                 strokeLinecap="round"
                 stroke={isCompletedPath ? bookColor : undefined}
-                className={isCompletedPath ? "opacity-60" : "stroke-stone-200 dark:stroke-stone-700"}
+                className={cn(
+                  isCompletedPath ? "opacity-60" : "stroke-stone-200 dark:stroke-stone-700",
+                  shouldAnimateTiles && "animate-connection-line"
+                )}
+                style={shouldAnimateTiles ? { animationDelay: `${lineDelay}ms` } : undefined}
               />
             )
           })}
@@ -746,12 +799,22 @@ function App() {
                 </div>
               )
             })()}
-            <div className="h-2 bg-stone-200 dark:bg-stone-800 rounded-full overflow-hidden">
+            <div
+              key={shouldAnimate ? `container-${progressPercent}` : 'container-static'}
+              className={cn(
+                "h-4 bg-stone-200 dark:bg-stone-800 rounded-full overflow-hidden",
+                shouldAnimate && "animate-progress-container-pop"
+              )}
+            >
               <div
-                className="h-full rounded-full transition-all duration-700 ease-out"
+                className={cn(
+                  "h-full rounded-full relative overflow-hidden progress-bar-animated",
+                  shouldAnimate && "animate-progress-celebrate-combo progress-shimmer-active"
+                )}
                 style={{
                   width: `${progressPercent}%`,
-                  background: `linear-gradient(90deg, ${textColor}, ${bookColor})`
+                  background: `linear-gradient(90deg, ${textColor}, ${bookColor})`,
+                  transformOrigin: 'left'
                 }}
               />
             </div>
@@ -774,15 +837,18 @@ function App() {
                 const isUnlocked = isChapterUnlocked(chapterNum)
                 const isLocked = !isUnlocked
                 const verseCount = chapter.verses?.length || 0
+                // Stagger delay based on position in grid - capped for large books
+                const staggerDelay = Math.min(idx * 20, 500)
 
                 return (
                   <button
-                    key={idx}
+                    key={`${currentBook?.name}-${idx}`}
                     className={cn(
                       "w-14 h-14 rounded-2xl flex flex-col items-center justify-center relative transition-all duration-200 border-b-4 border-l border-r border-t font-bold text-white",
                       !isLocked && "hover:-translate-y-0.5 active:border-b-2 active:mt-[2px] active:mb-[-2px]",
                       isCurrent && !isLocked && "ring-2 ring-offset-2 ring-offset-background",
-                      isLocked && "cursor-not-allowed"
+                      isLocked && "cursor-not-allowed",
+                      shouldAnimateTiles && "animate-chapter-tile-pop-in"
                     )}
                     style={{
                       backgroundColor: bookColor,
@@ -796,17 +862,18 @@ function App() {
                       gridColumn: col + 1,
                       gridRow: row + 1,
                       ringColor: isCurrent ? textColor : undefined,
+                      animationDelay: shouldAnimateTiles ? `${staggerDelay}ms` : undefined,
                     }}
                     onClick={() => !isLocked && selectChapterFromOverview(idx)}
                     disabled={isLocked}
                   >
                     {isLocked ? (
-                      <Lock className="w-4 h-4 opacity-40" />
+                      <Lock className={cn("w-4 h-4", shouldAnimateTiles ? "animate-lock-in" : "opacity-40")} style={{ animationDelay: shouldAnimateTiles ? `${staggerDelay + 150}ms` : undefined }} />
                     ) : (
-                      <>
+                      <div className={cn("flex flex-col items-center", shouldAnimateTiles && "animate-chapter-content-in")} style={{ animationDelay: shouldAnimateTiles ? `${staggerDelay + 150}ms` : undefined }}>
                         <span className="text-base font-bold">{chapterNum}</span>
                         <span className="text-[9px] font-medium opacity-60">{verseCount}v</span>
-                      </>
+                      </div>
                     )}
 
                     {/* Status Badge */}
@@ -922,7 +989,7 @@ function App() {
       </div>
 
       {quizState.inRetryMode && (
-        <div className="bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30 text-amber-800 dark:text-amber-200 px-4 py-3 rounded-xl text-center font-semibold text-sm mb-6 animate-in slide-in-from-top border border-amber-200/50 dark:border-amber-700/50">
+        <div className="bg-gradient-to-r from-[#1cb0f6]/15 via-[#84d8ff]/15 to-[#1cb0f6]/15 dark:from-[#1cb0f6]/20 dark:via-[#84d8ff]/20 dark:to-[#1cb0f6]/20 text-[#1899d6] dark:text-[#84d8ff] px-5 py-2.5 rounded-2xl text-center font-bold text-sm mb-4 animate-in slide-in-from-top border-2 border-[#84d8ff]/50 dark:border-[#1cb0f6]/50">
           Let's try those again
         </div>
       )}
@@ -1248,7 +1315,7 @@ function App() {
                 <div className="font-serif text-lg leading-relaxed space-y-4">
                   {verses.map((verse: { verse: number; text: string }, idx: number) => (
                     <p key={idx}>
-                      <span className="text-xs font-sans font-semibold text-primary align-super mr-1">
+                      <span className="text-xs font-sans font-semibold align-super mr-1" style={{ color: textColor }}>
                         {verse.verse}
                       </span>
                       {verse.text}
@@ -1272,8 +1339,12 @@ function App() {
                     return (
                       <>
                         <Button
-                          variant="duolingo-orange"
-                          className="min-w-[140px] h-11 px-8 rounded-md border-b-4 hover:-translate-y-0.5 active:border-b-2 active:translate-y-0 active:mt-0 active:mb-0 transition-all duration-100"
+                          className="min-w-[140px] h-11 px-8 rounded-2xl border-b-4 font-bold uppercase tracking-wide hover:-translate-y-0.5 active:border-b-2 active:translate-y-0 active:mt-0 active:mb-0 transition-all duration-100 shadow-lg"
+                          style={{
+                            backgroundColor: bookColor,
+                            color: textColor,
+                            borderBottomColor: darkerBorderColor,
+                          }}
                           onClick={startQuiz}
                         >
                           Retake Quiz
@@ -1288,9 +1359,13 @@ function App() {
                     // Chapter not completed, has quiz: show Take the Quiz (replaces Next)
                     return (
                       <Button
-                        variant="duolingo-blue"
                         size="lg"
-                        className="min-w-[160px]"
+                        className="min-w-[160px] rounded-2xl border-b-4 font-bold uppercase tracking-wide hover:-translate-y-0.5 active:border-b-2 active:translate-y-0 transition-all duration-100 shadow-lg"
+                        style={{
+                          backgroundColor: bookColor,
+                          color: textColor,
+                          borderBottomColor: darkerBorderColor,
+                        }}
                         onClick={startQuiz}
                       >
                         Take the Quiz

@@ -232,7 +232,7 @@ export function GroupDetail({ groupId, onBack, currentUserId }: GroupDetailProps
           {/* Leaderboard */}
           <div>
             <h3 className="text-lg font-semibold mb-3">Leaderboard</h3>
-            <Card className="overflow-hidden">
+            <Card className="overflow-visible">
               {leaderboard?.map((member) => (
                 <LeaderboardRow
                   key={member.user_id}

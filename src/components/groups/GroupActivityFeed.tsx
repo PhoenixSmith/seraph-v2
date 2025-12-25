@@ -72,7 +72,7 @@ export function GroupActivityFeed({ groupId }: GroupActivityFeedProps) {
   }
 
   return (
-    <Card className="divide-y divide-border">
+    <Card className="divide-y divide-border overflow-visible">
       {activities.map((activity) => (
         <div key={activity.activity_id} className="flex items-center gap-3 p-3">
           <MemberHoverCard
