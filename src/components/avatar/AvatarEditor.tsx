@@ -6,12 +6,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
 import {
   AVATAR_ACCESSORIES,
   type AvatarConfig,
   type AccessoryCategory,
-  getAvatarImageSrc,
+  getAvatarLayers,
 } from './UserAvatar'
 
 interface AvatarEditorProps {
@@ -47,20 +46,6 @@ export function AvatarEditor({
         : (currentIndex - 1 + accessories.length) % accessories.length
 
     const newConfig = { ...config, [category]: accessories[newIndex].id }
-
-    // If selecting a full outfit, clear individual pieces
-    if (category === 'outfit' && accessories[newIndex].id !== 'none') {
-      newConfig.face = 'none'
-      newConfig.hat = 'none'
-      newConfig.top = 'none'
-      newConfig.bottom = 'none'
-      newConfig.misc = 'none'
-    }
-    // If selecting any individual piece, clear outfit
-    else if (category !== 'outfit' && accessories[newIndex].id !== 'none') {
-      newConfig.outfit = 'none'
-    }
-
     onConfigChange(newConfig)
   }
 
@@ -70,7 +55,7 @@ export function AvatarEditor({
     return current?.name ?? 'None'
   }
 
-  const previewSrc = getAvatarImageSrc(config)
+  const previewLayers = getAvatarLayers(config)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -80,31 +65,29 @@ export function AvatarEditor({
         </DialogHeader>
 
         <div className="flex flex-col items-center gap-6 py-4">
-          {/* Avatar Preview */}
+          {/* Avatar Preview - Layered */}
           <div className="relative w-40 h-40 rounded-full overflow-hidden bg-gradient-to-br from-purple-100 to-blue-100 dark:from-purple-900/30 dark:to-blue-900/30 ring-4 ring-border shadow-lg">
-            <img
-              src={previewSrc}
-              alt="Avatar preview"
-              className="w-full h-full object-cover"
-              draggable={false}
-            />
+            {previewLayers.map((src, index) => (
+              <img
+                key={src}
+                src={src}
+                alt={index === 0 ? 'Avatar base' : 'Avatar layer'}
+                className="absolute inset-0 w-full h-full object-cover"
+                style={{ zIndex: index }}
+                draggable={false}
+              />
+            ))}
           </div>
 
           {/* Accessory Controls */}
           <div className="w-full space-y-3">
             {CATEGORY_ORDER.map(category => {
               const accessories = AVATAR_ACCESSORIES[category]
-              const isDisabled =
-                category !== 'outfit' &&
-                config.outfit !== 'none'
 
               return (
                 <div
                   key={category}
-                  className={cn(
-                    'flex items-center gap-3 p-3 rounded-lg bg-muted/50 transition-opacity',
-                    isDisabled && 'opacity-50'
-                  )}
+                  className="flex items-center gap-3 p-3 rounded-lg bg-muted/50"
                 >
                   <span className="w-16 text-sm font-medium text-muted-foreground">
                     {CATEGORY_LABELS[category]}
@@ -116,7 +99,6 @@ export function AvatarEditor({
                       size="icon"
                       className="h-8 w-8"
                       onClick={() => cycleAccessory(category, 'prev')}
-                      disabled={isDisabled}
                     >
                       <ChevronLeft className="h-4 w-4" />
                     </Button>
@@ -130,7 +112,6 @@ export function AvatarEditor({
                       size="icon"
                       className="h-8 w-8"
                       onClick={() => cycleAccessory(category, 'next')}
-                      disabled={isDisabled}
                     >
                       <ChevronRight className="h-4 w-4" />
                     </Button>
@@ -144,12 +125,6 @@ export function AvatarEditor({
               )
             })}
           </div>
-
-          {config.outfit !== 'none' && (
-            <p className="text-xs text-muted-foreground text-center">
-              Outfit selected - individual pieces are hidden
-            </p>
-          )}
         </div>
       </DialogContent>
     </Dialog>

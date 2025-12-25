@@ -140,7 +140,7 @@ export function GroupDetail({ groupId, onBack, currentUserId }: GroupDetailProps
           Back
         </Button>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-center gap-2">
             <h2 className="text-2xl font-semibold truncate">{group.name}</h2>
             {group.is_leader && (
               <Button

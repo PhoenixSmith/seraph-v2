@@ -18,12 +18,24 @@ const buttonVariants = cva(
           "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
+        // Duolingo-style thicc 3D button (green - for correct/continue)
+        duolingo:
+          "bg-[#58cc02] text-white font-bold uppercase tracking-wide rounded-2xl border-b-4 border-[#58a700] hover:bg-[#61dc03] active:border-b-0 active:mt-1 active:mb-[-4px] transition-all shadow-lg",
+        // Duolingo-style thicc 3D button (blue - for primary actions)
+        "duolingo-blue":
+          "bg-[#1cb0f6] text-white font-bold uppercase tracking-wide rounded-2xl border-b-4 border-[#1899d6] hover:bg-[#1dc9f7] active:border-b-0 active:mt-1 active:mb-[-4px] transition-all shadow-lg",
+        "duolingo-secondary":
+          "bg-white text-[#4b4b4b] font-bold uppercase tracking-wide rounded-2xl border-2 border-[#e5e5e5] border-b-4 border-b-[#e5e5e5] hover:bg-[#f7f7f7] active:border-b-2 active:mt-[2px] active:mb-[-2px] transition-all dark:bg-muted dark:text-foreground dark:border-border dark:border-b-border/80",
+        "duolingo-orange":
+          "bg-[#ff9500] text-white font-bold uppercase tracking-wide rounded-2xl border-b-4 border-[#e68a00] hover:bg-[#ffaa1a] active:border-b-0 active:mt-1 active:mb-[-4px] transition-all shadow-lg",
       },
       size: {
         default: "h-10 px-4 py-2",
         sm: "h-9 rounded-md px-3",
         lg: "h-11 rounded-md px-8",
         icon: "h-10 w-10",
+        // Duolingo thicc size
+        duolingo: "h-14 px-8 py-4 text-base",
       },
     },
     defaultVariants: {

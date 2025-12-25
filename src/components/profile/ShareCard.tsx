@@ -1,7 +1,7 @@
 import { forwardRef } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { Star, Flame, BookOpen, Trophy, TrendingUp } from 'lucide-react'
-import { type AvatarConfig, getAvatarImageSrc, DEFAULT_AVATAR_CONFIG } from '@/components/avatar'
+import { type AvatarConfig, getAvatarLayers, DEFAULT_AVATAR_CONFIG } from '@/components/avatar'
 import type * as api from '@/lib/api'
 
 const SIGNUP_URL = 'https://scrolily.com'
@@ -16,7 +16,7 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
   ({ user, stats, achievements }, ref) => {
     const displayName = user.name || 'Scrolily Reader'
     const avatarConfig = user.avatar_config ?? DEFAULT_AVATAR_CONFIG
-    const avatarSrc = getAvatarImageSrc(avatarConfig as AvatarConfig)
+    const avatarLayers = getAvatarLayers(avatarConfig as AvatarConfig)
     const recentAchievements = achievements.slice(0, 3)
 
     return (
@@ -47,13 +47,17 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
         {/* Header with avatar and name */}
         <div className="relative z-10 text-center mb-6">
           <div className="inline-block p-1 rounded-full bg-gradient-to-br from-amber-400 via-rose-500 to-purple-600 mb-4">
-            <div className="w-24 h-24 rounded-full overflow-hidden bg-[#1a1a2e]">
-              <img
-                src={avatarSrc}
-                alt="Avatar"
-                className="w-full h-full object-cover"
-                crossOrigin="anonymous"
-              />
+            <div className="relative w-24 h-24 rounded-full overflow-hidden bg-[#1a1a2e]">
+              {avatarLayers.map((src, index) => (
+                <img
+                  key={src}
+                  src={src}
+                  alt={index === 0 ? 'Avatar base' : 'Avatar layer'}
+                  className="absolute inset-0 w-full h-full object-cover"
+                  style={{ zIndex: index }}
+                  crossOrigin="anonymous"
+                />
+              ))}
             </div>
           </div>
           <h1 className="text-2xl font-bold text-white mb-1">{displayName}</h1>

@@ -16,20 +16,22 @@ interface StatCardProps {
 
 function StatCard({ icon, label, value, subtext }: StatCardProps) {
   return (
-    <div className="flex items-center gap-3 p-3">
+    <div className="flex flex-col items-center justify-center gap-2 py-4 px-2 text-center">
       <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
         {icon}
       </div>
       <div>
         <p className="text-2xl font-bold">{value}</p>
-        <p className="text-xs text-muted-foreground">{label}</p>
-        {subtext && <p className="text-xs text-muted-foreground">{subtext}</p>}
+        <p className="text-xs text-muted-foreground">
+          {label}{subtext && ` ${subtext}`}
+        </p>
       </div>
     </div>
   )
 }
 
-function formatNumber(num: number): string {
+function formatNumber(num: number | undefined | null): string {
+  if (num == null || typeof num !== 'number' || isNaN(num)) return '0'
   if (num >= 1000000) {
     return (num / 1000000).toFixed(1) + 'M'
   }
@@ -55,8 +57,8 @@ export function GroupStats({ groupId }: GroupStatsProps) {
   }
 
   return (
-    <Card>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 divide-x divide-y sm:divide-y-0 divide-border">
+    <Card className="p-2">
+      <div className="grid grid-cols-3 sm:grid-cols-5 gap-1">
         <StatCard
           icon={<Users className="h-5 w-5 text-blue-500" />}
           label="Members"
@@ -68,20 +70,21 @@ export function GroupStats({ groupId }: GroupStatsProps) {
           value={stats.active_members}
         />
         <StatCard
-          icon={<Zap className="h-5 w-5 text-yellow-500" />}
-          label="Total XP"
-          value={formatNumber(stats.total_xp)}
-        />
-        <StatCard
           icon={<BookOpen className="h-5 w-5 text-purple-500" />}
-          label="Chapters Read"
+          label="Chapters"
           value={formatNumber(stats.total_chapters)}
         />
         <StatCard
+          icon={<Zap className="h-5 w-5 text-yellow-500" />}
+          label="XP"
+          value={formatNumber(stats.total_xp)}
+          subtext="total"
+        />
+        <StatCard
           icon={<Calendar className="h-5 w-5 text-orange-500" />}
-          label="This Week"
-          value={stats.chapters_this_week}
-          subtext="chapters"
+          label="XP"
+          value={formatNumber(stats.xp_this_week)}
+          subtext="this week"
         />
       </div>
     </Card>

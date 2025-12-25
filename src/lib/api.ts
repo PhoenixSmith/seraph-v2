@@ -524,7 +524,7 @@ export async function joinGroupByCode(inviteCode: string): Promise<JoinGroupByCo
 }
 
 export interface GroupActivity {
-  id: string
+  activity_id: string
   user_id: string
   user_name: string | null
   user_avatar_url: string | null
@@ -550,7 +550,7 @@ export interface GroupStatistics {
   member_count: number
   total_xp: number
   total_chapters: number
-  chapters_this_week: number
+  xp_this_week: number
   active_members: number
 }
 

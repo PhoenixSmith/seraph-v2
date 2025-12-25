@@ -13,6 +13,7 @@ export const AVATAR_ACCESSORIES = {
     { id: 'none', name: 'None', src: null },
     { id: 'happy', name: 'Happy', src: '/avatar/Accesories/Face_Happy.png' },
     { id: 'happy_2', name: 'Cute', src: '/avatar/Accesories/Face_Happy_2.png' },
+    { id: 'aviators', name: 'Aviators', src: '/avatar/Accesories/Face_Aviators.png' },
   ],
   hat: [
     { id: 'none', name: 'None', src: null },
@@ -46,44 +47,59 @@ export const AVATAR_ACCESSORIES = {
 
 export type AccessoryCategory = keyof typeof AVATAR_ACCESSORIES
 
-// Get the image src for the current avatar configuration
-export function getAvatarImageSrc(config: AvatarConfig): string {
-  // Priority: outfit > individual pieces
-  // Since accessories are full images, we use the first non-none accessory found
-  // Priority order: outfit (full body) > misc > face > hat > top > bottom
+// Layer order for avatar rendering (bottom to top)
+// 1. Base avatar (lowest)
+// 2. Bottom (pants, skirts)
+// 3. Top (shirts, hoodies)
+// 4. Face (expressions, glasses)
+// 5. Misc (accessories)
+// 6. Hat (highest)
 
-  if (config.outfit !== 'none') {
-    const outfit = AVATAR_ACCESSORIES.outfit.find(a => a.id === config.outfit)
-    if (outfit?.src) return outfit.src
-  }
+// Get all avatar layers in render order (bottom to top)
+export function getAvatarLayers(config: AvatarConfig): string[] {
+  const layers: string[] = []
 
-  if (config.misc !== 'none') {
-    const misc = AVATAR_ACCESSORIES.misc.find(a => a.id === config.misc)
-    if (misc?.src) return misc.src
-  }
+  // Always add base avatar first (lowest layer)
+  layers.push('/avatar/Base_Avatar.png')
 
-  if (config.face !== 'none') {
-    const face = AVATAR_ACCESSORIES.face.find(a => a.id === config.face)
-    if (face?.src) return face.src
-  }
-
-  if (config.hat !== 'none') {
-    const hat = AVATAR_ACCESSORIES.hat.find(a => a.id === config.hat)
-    if (hat?.src) return hat.src
+  // Add layers in order: bottom -> top -> outfit -> face -> misc -> hat
+  if (config.bottom !== 'none') {
+    const bottom = AVATAR_ACCESSORIES.bottom.find(a => a.id === config.bottom)
+    if (bottom?.src) layers.push(bottom.src)
   }
 
   if (config.top !== 'none') {
     const top = AVATAR_ACCESSORIES.top.find(a => a.id === config.top)
-    if (top?.src) return top.src
+    if (top?.src) layers.push(top.src)
   }
 
-  if (config.bottom !== 'none') {
-    const bottom = AVATAR_ACCESSORIES.bottom.find(a => a.id === config.bottom)
-    if (bottom?.src) return bottom.src
+  if (config.outfit !== 'none') {
+    const outfit = AVATAR_ACCESSORIES.outfit.find(a => a.id === config.outfit)
+    if (outfit?.src) layers.push(outfit.src)
   }
 
-  // Default base avatar
-  return '/avatar/Base_Avatar.png'
+  if (config.face !== 'none') {
+    const face = AVATAR_ACCESSORIES.face.find(a => a.id === config.face)
+    if (face?.src) layers.push(face.src)
+  }
+
+  if (config.misc !== 'none') {
+    const misc = AVATAR_ACCESSORIES.misc.find(a => a.id === config.misc)
+    if (misc?.src) layers.push(misc.src)
+  }
+
+  if (config.hat !== 'none') {
+    const hat = AVATAR_ACCESSORIES.hat.find(a => a.id === config.hat)
+    if (hat?.src) layers.push(hat.src)
+  }
+
+  return layers
+}
+
+// Legacy function for single image (uses first accessory layer or base)
+export function getAvatarImageSrc(config: AvatarConfig): string {
+  const layers = getAvatarLayers(config)
+  return layers[layers.length - 1] // Return topmost layer for backwards compatibility
 }
 
 interface UserAvatarProps {
@@ -112,7 +128,7 @@ export function UserAvatar({
   const [internalConfig, setInternalConfig] = useState<AvatarConfig>(DEFAULT_AVATAR_CONFIG)
 
   const config = controlledConfig ?? internalConfig
-  const imageSrc = getAvatarImageSrc(config)
+  const layers = getAvatarLayers(config)
 
   const handleConfigChange = async (newConfig: AvatarConfig) => {
     if (onConfigChange) {
@@ -136,13 +152,20 @@ export function UserAvatar({
     className
   )
 
-  const avatarImage = (
-    <img
-      src={imageSrc}
-      alt="Avatar"
-      className="w-full h-full object-cover"
-      draggable={false}
-    />
+  // Render all layers stacked with absolute positioning
+  const avatarLayers = (
+    <>
+      {layers.map((src, index) => (
+        <img
+          key={src}
+          src={src}
+          alt={index === 0 ? 'Avatar base' : 'Avatar layer'}
+          className="absolute inset-0 w-full h-full object-cover"
+          style={{ zIndex: index }}
+          draggable={false}
+        />
+      ))}
+    </>
   )
 
   return (
@@ -153,11 +176,11 @@ export function UserAvatar({
           className={avatarClasses}
           aria-label="Edit avatar"
         >
-          {avatarImage}
+          {avatarLayers}
         </button>
       ) : (
         <div className={avatarClasses} aria-label="User avatar">
-          {avatarImage}
+          {avatarLayers}
         </div>
       )}
 

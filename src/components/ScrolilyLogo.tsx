@@ -13,7 +13,7 @@ export function ScrolilyLogo({ className, size = 24 }: ScrolilyLogoProps) {
       height={size}
       viewBox="0 0 24 24"
       fill="none"
-      className={cn("text-purple-400", className)}
+      className={cn("text-blue-400", className)}
       xmlns="http://www.w3.org/2000/svg"
     >
       {/* Back petal/wing */}

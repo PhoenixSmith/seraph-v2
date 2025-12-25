@@ -73,7 +73,7 @@ export function GroupActivityFeed({ groupId }: GroupActivityFeedProps) {
   return (
     <Card className="divide-y divide-border">
       {activities.map((activity) => (
-        <div key={activity.id} className="flex items-center gap-3 p-3">
+        <div key={activity.activity_id} className="flex items-center gap-3 p-3">
           <UserAvatar size="sm" editable={false} config={activity.user_avatar_config} />
           <div className="flex-1 min-w-0">
             <p className="text-sm">

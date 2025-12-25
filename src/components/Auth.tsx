@@ -203,12 +203,12 @@ export function StreakXPDisplay({ user, className }: { user: User; className?: s
   const currentStreak = user?.current_streak ?? 0
 
   return (
-    <div className={cn("flex justify-center gap-2 mt-4", className)}>
-      <Badge variant="secondary" className="flex items-center gap-1.5 px-3 py-1">
+    <div className={cn("flex gap-2", className)}>
+      <Badge variant="skeumorphic" className="flex items-center gap-1.5 px-3 py-1">
         <Star className="h-3.5 w-3.5 text-amber-500" fill="currentColor" />
         <span>{totalXp} XP</span>
       </Badge>
-      <Badge variant="secondary" className="flex items-center gap-1.5 px-3 py-1">
+      <Badge variant="skeumorphic" className="flex items-center gap-1.5 px-3 py-1">
         <Flame className="h-3.5 w-3.5 text-red-500" fill="currentColor" />
         <span>{currentStreak} day{currentStreak !== 1 ? 's' : ''}</span>
       </Badge>

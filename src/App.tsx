@@ -1,9 +1,9 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from 'react'
 import { useSupabaseAuth, useQuery } from '@/hooks/useSupabase'
 import { useSound } from '@/hooks/useSound'
 import * as api from '@/lib/api'
 import { Auth, UserButton, StreakXPDisplay, User } from './components/Auth'
-import { getAvatarImageSrc, DEFAULT_AVATAR_CONFIG } from '@/components/avatar'
+import { getAvatarLayers, DEFAULT_AVATAR_CONFIG } from '@/components/avatar'
 import { GroupsPage } from './components/groups'
 import { ProfilePage } from './components/profile'
 import { useRewardModal, RewardRenderer } from './components/rewards'
@@ -19,11 +19,59 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Sun, Moon, BookOpen, LayoutGrid, Users, X, Check, ArrowRight, ChevronLeft, ChevronRight, Star, CheckCircle, Lock } from 'lucide-react'
+import { Sun, Moon, BookOpen, LayoutGrid, Users, X, Check, ArrowRight, ChevronLeft, ChevronRight, Star, CheckCircle, Lock, Flame } from 'lucide-react'
 import { ScrolilyLogo } from './components/ScrolilyLogo'
 import { cn } from '@/lib/utils'
 import bibleData from '../BSB.json'
 import questionsData from '../seraph-progress.json'
+
+// Animated number component with rolling digit effect
+function AnimatedNumber({ value, className, style }: { value: number; className?: string; style?: React.CSSProperties }) {
+  const [displayValue, setDisplayValue] = useState(value)
+  const [isAnimating, setIsAnimating] = useState(false)
+  const prevValue = useRef(value)
+
+  useLayoutEffect(() => {
+    if (prevValue.current !== value) {
+      setIsAnimating(true)
+      const startValue = prevValue.current
+      const endValue = value
+      const duration = 600
+      const startTime = performance.now()
+
+      const animate = (currentTime: number) => {
+        const elapsed = currentTime - startTime
+        const progress = Math.min(elapsed / duration, 1)
+        // Ease out cubic
+        const eased = 1 - Math.pow(1 - progress, 3)
+        const current = Math.round(startValue + (endValue - startValue) * eased)
+        setDisplayValue(current)
+
+        if (progress < 1) {
+          requestAnimationFrame(animate)
+        } else {
+          setIsAnimating(false)
+          prevValue.current = value
+        }
+      }
+      requestAnimationFrame(animate)
+    }
+  }, [value])
+
+  return (
+    <span
+      className={className}
+      style={{
+        ...style,
+        display: 'inline-block',
+        transition: isAnimating ? 'transform 0.1s' : undefined,
+        transform: isAnimating ? 'scale(1.05)' : 'scale(1)'
+      }}
+    >
+      {displayValue}%
+    </span>
+  )
+}
 
 interface Question {
   question: string
@@ -575,8 +623,7 @@ function App() {
             <span className="text-xs uppercase tracking-wide text-muted-foreground">Questions</span>
           </div>
         </div>
-        <Button size="lg" onClick={() => exitQuiz(true)}>
-          <ArrowRight className="w-5 h-5 mr-2" />
+        <Button variant="duolingo" size="duolingo" onClick={() => exitQuiz(true)} className="min-w-[200px]">
           Continue to {getNextDestination()}
         </Button>
       </div>
@@ -667,8 +714,8 @@ function App() {
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
               <div
-                className="w-16 h-16 rounded-2xl flex items-center justify-center text-white shadow-lg"
-                style={{ background: `linear-gradient(135deg, ${textColor}, ${bookColor})` }}
+                className="w-16 h-16 rounded-2xl flex items-center justify-center text-white border border-white/20"
+                style={{ background: `linear-gradient(135deg, ${textColor}, ${bookColor})`, boxShadow: '3px 3px 8px rgba(0,0,0,0.12)' }}
               >
                 <BookOpen className="w-8 h-8" />
               </div>
@@ -678,12 +725,11 @@ function App() {
               </div>
             </div>
             <div className="text-right">
-              <div
+              <AnimatedNumber
+                value={progressPercent}
                 className="text-3xl font-bold"
                 style={{ color: textColor }}
-              >
-                {progressPercent}%
-              </div>
+              />
               <p className="text-xs text-muted-foreground">Complete</p>
             </div>
           </div>
@@ -784,9 +830,10 @@ function App() {
         <div className="mt-6 pt-4 border-t">
           <Button
             size="lg"
-            className="w-full h-12 text-base font-semibold"
+            className="w-full h-12 text-base font-semibold border-b-4 hover:-translate-y-0.5 active:translate-y-0 active:border-b-2 transition-all duration-100"
             style={{
               background: `linear-gradient(135deg, ${textColor}, ${bookColor})`,
+              borderBottomColor: getPastelColor(currentBook?.name || 'Genesis', 0.6, 0.3),
             }}
             onClick={() => setViewMode('reading')}
           >
@@ -842,12 +889,18 @@ function App() {
       {/* Player avatar standing in bottom-right corner */}
       {user && (
         <div className="fixed bottom-24 right-4 z-20 animate-in slide-in-from-bottom-8 duration-700 pointer-events-none">
-          <img
-            src={getAvatarImageSrc(user.avatar_config ?? DEFAULT_AVATAR_CONFIG)}
-            alt="Your avatar"
-            className="h-36 w-36 object-contain drop-shadow-xl"
-            draggable={false}
-          />
+          <div className="relative h-36 w-36">
+            {getAvatarLayers(user.avatar_config ?? DEFAULT_AVATAR_CONFIG).map((src, index) => (
+              <img
+                key={src}
+                src={src}
+                alt={index === 0 ? 'Avatar base' : 'Avatar layer'}
+                className="absolute inset-0 h-full w-full object-contain drop-shadow-xl"
+                style={{ zIndex: index }}
+                draggable={false}
+              />
+            ))}
+          </div>
         </div>
       )}
 
@@ -880,7 +933,7 @@ function App() {
         <Sparkles show={quizState.showResult && quizState.isCorrect} />
         <XPPopup show={quizState.showResult && quizState.isCorrect} />
 
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-4">
           {currentQuestion?.options.map((option, index) => {
             const isSelected = quizState.selectedAnswer === option.letter
             const isCorrect = quizState.showResult && isSelected && quizState.isCorrect
@@ -890,14 +943,22 @@ function App() {
             return (
               <button
                 key={option.letter}
-                style={{ animationDelay: `${index * 50}ms` }}
+                style={{
+                  animationDelay: `${index * 50}ms`,
+                }}
                 className={cn(
-                  "p-4 rounded-xl border-2 text-left flex items-start gap-4 transition-all relative animate-in fade-in slide-in-from-bottom-2",
-                  "bg-card shadow-sm hover:shadow-md",
-                  !quizState.showResult && "hover:translate-x-1 hover:border-primary hover:bg-accent/50 active:scale-[0.99]",
-                  isCorrect && "border-green-500 bg-green-500/10 shadow-green-500/20 shadow-lg animate-correct-pulse",
-                  isIncorrect && "border-red-500 bg-red-500/10 shadow-red-500/20 shadow-lg animate-wrong-shake",
-                  isCorrectAnswer && !isSelected && "border-green-500/50 bg-green-500/5",
+                  // Base thicc Duolingo style
+                  "p-5 rounded-2xl border-2 border-b-4 text-left flex items-center gap-4 transition-all relative animate-in fade-in slide-in-from-bottom-2",
+                  "bg-card font-medium",
+                  // Default state - blue thicc 3D effect (Duolingo style)
+                  !quizState.showResult && "border-[#84d8ff] dark:border-[#1899d6] border-b-[#1cb0f6] dark:border-b-[#1899d6] hover:bg-[#ddf4ff] dark:hover:bg-[#1cb0f6]/10 hover:border-[#1cb0f6] hover:border-b-[#1899d6] active:border-b-2 active:mt-[2px] active:mb-[-2px] cursor-pointer",
+                  // Correct answer - green thicc border
+                  isCorrect && "border-[#58cc02] border-b-[#58a700] bg-[#d7ffb8] dark:bg-[#58cc02]/20 animate-correct-pulse",
+                  // Incorrect answer - red thicc border
+                  isIncorrect && "border-red-400 border-b-red-500 bg-red-50 dark:bg-red-500/20 animate-wrong-shake",
+                  // Show correct answer when wrong selected
+                  isCorrectAnswer && !isSelected && "border-[#58cc02]/60 border-b-[#58a700]/60 bg-[#d7ffb8]/50 dark:bg-[#58cc02]/10",
+                  // Fade non-selected wrong answers
                   !isSelected && !isCorrectAnswer && quizState.showResult && "opacity-40"
                 )}
                 onClick={() => selectAnswer(option.letter)}
@@ -905,16 +966,16 @@ function App() {
               >
                 <span
                   className={cn(
-                    "w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm flex-shrink-0 transition-all",
-                    isCorrect && "bg-green-500 text-white animate-glow-correct",
-                    isIncorrect && "bg-red-500 text-white animate-glow-wrong",
-                    isCorrectAnswer && !isSelected && "bg-green-500/70 text-white",
-                    !isCorrect && !isIncorrect && !isCorrectAnswer && "bg-muted text-muted-foreground"
+                    "w-10 h-10 rounded-xl flex items-center justify-center font-bold text-base flex-shrink-0 transition-all border-2",
+                    isCorrect && "bg-[#58cc02] border-[#58a700] text-white animate-glow-correct",
+                    isIncorrect && "bg-red-500 border-red-600 text-white animate-glow-wrong",
+                    isCorrectAnswer && !isSelected && "bg-[#58cc02]/70 border-[#58a700]/70 text-white",
+                    !isCorrect && !isIncorrect && !isCorrectAnswer && "bg-[#ddf4ff] dark:bg-[#1cb0f6]/20 border-[#84d8ff] dark:border-[#1899d6] text-[#1899d6] dark:text-[#84d8ff]"
                   )}
                 >
                   {isCorrect ? <Check className="w-5 h-5" /> : isIncorrect ? <X className="w-5 h-5" /> : option.letter}
                 </span>
-                <span className="flex-1 leading-relaxed pt-1">{option.text}</span>
+                <span className="flex-1 leading-relaxed text-base">{option.text}</span>
               </button>
             )
           })}
@@ -947,12 +1008,12 @@ function App() {
       {quizState.showResult && (
         <div className="py-8 flex justify-center">
           <Button
-            size="lg"
+            variant="duolingo"
+            size="duolingo"
             onClick={nextQuestion}
-            className="animate-in fade-in slide-in-from-bottom-4 duration-300 px-8 rounded-xl shadow-lg hover:shadow-xl transition-shadow"
+            className="animate-in fade-in slide-in-from-bottom-4 duration-300 min-w-[200px]"
           >
             Continue
-            <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
         </div>
       )}
@@ -1006,7 +1067,7 @@ function App() {
             )}
           >
             <h1 className="text-2xl font-semibold tracking-tight">Scrolily</h1>
-            <ScrolilyLogo size={28} className="text-purple-400" />
+            <ScrolilyLogo size={28} className="text-blue-400" />
           </div>
         </div>
       )}
@@ -1015,7 +1076,7 @@ function App() {
         quizState.completed ? <QuizComplete /> : <QuizView />
       ) : (
         <>
-          <header className="text-center mb-12 relative">
+          <header className="mb-12 relative">
             <Button
               variant="outline"
               size="icon"
@@ -1047,17 +1108,30 @@ function App() {
                 </Button>
               ) : null}
             </div>
-            <h1 className={cn(
-              "text-2xl font-semibold tracking-tight inline-flex items-center gap-2",
-              introPhase !== 'done' && "invisible"
-            )}>
-              Scrolily
-              <ScrolilyLogo size={28} className="text-purple-400" />
-            </h1>
-            {userForComponents && <StreakXPDisplay user={userForComponents} className={cn(
-              "transition-opacity duration-300",
+            <div className={cn(
+              "flex items-center justify-center gap-6 transition-opacity duration-300",
               introPhase !== 'done' ? "opacity-0" : "opacity-100"
-            )} />}
+            )}>
+              {userForComponents && (
+                <Badge variant="skeumorphic" className="flex items-center gap-1.5 px-3 py-1">
+                  <Star className="h-3.5 w-3.5 text-amber-500" fill="currentColor" />
+                  <span>{userForComponents.total_xp ?? 0} XP</span>
+                </Badge>
+              )}
+              <h1 className={cn(
+                "text-2xl font-semibold tracking-tight inline-flex items-center gap-2",
+                introPhase !== 'done' && "invisible"
+              )}>
+                Scrolily
+                <ScrolilyLogo size={28} className="text-blue-400" />
+              </h1>
+              {userForComponents && (
+                <Badge variant="skeumorphic" className="flex items-center gap-1.5 px-3 py-1">
+                  <Flame className="h-3.5 w-3.5 text-red-500" fill="currentColor" />
+                  <span>{userForComponents.current_streak ?? 0} day{(userForComponents.current_streak ?? 0) !== 1 ? 's' : ''}</span>
+                </Badge>
+              )}
+            </div>
           </header>
 
           <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as typeof viewMode)} className={cn(
@@ -1180,7 +1254,7 @@ function App() {
               </Card>
 
               <div className="flex gap-2 justify-center mb-8">
-                <Button variant="outline" className="min-w-[140px]" onClick={goToPrevChapter}>
+                <Button variant="outline" size="lg" className="min-w-[160px] border-b-4 hover:-translate-y-0.5 active:border-b-2 active:translate-y-0 transition-all duration-100" onClick={goToPrevChapter}>
                   <ChevronLeft className="w-4 h-4" />
                   Prev Chapter
                 </Button>
@@ -1194,13 +1268,13 @@ function App() {
                     return (
                       <>
                         <Button
-                          variant="outline"
-                          className="min-w-[120px]"
+                          variant="duolingo-orange"
+                          className="min-w-[140px] h-11 px-8 rounded-md border-b-4 hover:-translate-y-0.5 active:border-b-2 active:translate-y-0 active:mt-0 active:mb-0 transition-all duration-100"
                           onClick={startQuiz}
                         >
                           Retake Quiz
                         </Button>
-                        <Button variant="outline" className="min-w-[140px]" onClick={goToNextChapter}>
+                        <Button variant="outline" size="lg" className="min-w-[160px] border-b-4 hover:-translate-y-0.5 active:border-b-2 active:translate-y-0 transition-all duration-100" onClick={goToNextChapter}>
                           Next Chapter
                           <ChevronRight className="w-4 h-4" />
                         </Button>
@@ -1210,17 +1284,18 @@ function App() {
                     // Chapter not completed, has quiz: show Take the Quiz (replaces Next)
                     return (
                       <Button
-                        className="min-w-[140px] bg-gradient-to-r from-primary to-indigo-500 hover:from-primary/90 hover:to-indigo-500/90"
+                        variant="duolingo-blue"
+                        size="lg"
+                        className="min-w-[160px]"
                         onClick={startQuiz}
                       >
                         Take the Quiz
-                        <ChevronRight className="w-4 h-4" />
                       </Button>
                     )
                   } else {
                     // No quiz or not authenticated: just show Next Chapter
                     return (
-                      <Button variant="outline" className="min-w-[140px]" onClick={goToNextChapter}>
+                      <Button variant="outline" size="lg" className="min-w-[160px] border-b-4 hover:-translate-y-0.5 active:border-b-2 active:translate-y-0 transition-all duration-100" onClick={goToNextChapter}>
                         Next Chapter
                         <ChevronRight className="w-4 h-4" />
                       </Button>
