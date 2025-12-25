@@ -4,7 +4,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "npx @react-grab/claude-code@latest && vite",
+    "dev": "vite --host 0.0.0.0 --port 8080",
+    "dev-server": "vite --host 0.0.0.0 --port 3000",
     "build": "vite build",
     "preview": "vite preview"
   },
@@ -42,3 +43,5 @@
     "vite": "^5.0.0"
   }
 }
+
+

@@ -676,8 +676,8 @@ function App() {
     const bookColor = getPastelColor(currentBook?.name || 'Genesis')
     const textColor = getDarkerColor(currentBook?.name || 'Genesis')
     const progressPercent = Math.round((completedChapters.length / totalChapters) * 100)
-    const [shouldAnimateTiles, setShouldAnimateTiles] = useState(true)
-    const prevBookRef = useRef(currentBook?.name)
+    const [shouldAnimateTiles, setShouldAnimateTiles] = useState(false)
+    const prevBookRef = useRef<string | undefined>(undefined)
 
     // Track progress changes - only animate AFTER initial mount
     const [progressAnimating, setProgressAnimating] = useState(false)
@@ -697,8 +697,9 @@ function App() {
       }
     }, [progressPercent])
 
-    // Animate tiles when book changes
+    // Animate tiles on mount and when book changes
     useLayoutEffect(() => {
+      // Always animate on mount (prevBookRef starts undefined) or when book changes
       if (prevBookRef.current !== currentBook?.name) {
         setShouldAnimateTiles(true)
         prevBookRef.current = currentBook?.name
@@ -1201,7 +1202,7 @@ function App() {
               introPhase !== 'done' ? "opacity-0" : "opacity-100"
             )}>
               {userForComponents && (
-                <Badge variant="skeumorphic" className="flex items-center gap-1.5 px-3 py-1">
+                <Badge variant="skeumorphic" className="hidden sm:flex items-center gap-1.5 px-3 py-1">
                   <Star className="h-3.5 w-3.5 text-amber-500" fill="currentColor" />
                   <span>{userForComponents.total_xp ?? 0} XP</span>
                 </Badge>
@@ -1214,7 +1215,7 @@ function App() {
                 <ScrolilyLogo size={28} className="text-blue-400" />
               </h1>
               {userForComponents && (
-                <Badge variant="skeumorphic" className="flex items-center gap-1.5 px-3 py-1">
+                <Badge variant="skeumorphic" className="hidden sm:flex items-center gap-1.5 px-3 py-1">
                   <Flame className="h-3.5 w-3.5 text-red-500" fill="currentColor" />
                   <span>{userForComponents.current_streak ?? 0} day{(userForComponents.current_streak ?? 0) !== 1 ? 's' : ''}</span>
                 </Badge>
