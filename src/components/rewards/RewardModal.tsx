@@ -153,7 +153,7 @@ export function RewardModal({
           <div className="absolute -inset-4 bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/20 rounded-3xl blur-2xl animate-reward-glow" />
 
           {/* Card container */}
-          <div className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl border border-amber-500/30 overflow-hidden">
+          <div className="relative bg-gradient-to-br from-white via-slate-50 to-white dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 rounded-2xl border border-amber-500/30 overflow-hidden">
             {/* Sparkles layer */}
             <div className="absolute inset-0 pointer-events-none">
               {sparkles.map((sparkle) => (

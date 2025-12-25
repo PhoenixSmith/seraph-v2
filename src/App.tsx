@@ -3,6 +3,7 @@ import { useSupabaseAuth, useQuery } from '@/hooks/useSupabase'
 import { useSound } from '@/hooks/useSound'
 import * as api from '@/lib/api'
 import { Auth, UserButton, StreakXPDisplay, User } from './components/Auth'
+import { getAvatarImageSrc, DEFAULT_AVATAR_CONFIG } from '@/components/avatar'
 import { GroupsPage } from './components/groups'
 import { ProfilePage } from './components/profile'
 import { useRewardModal, RewardRenderer } from './components/rewards'
@@ -428,7 +429,7 @@ function App() {
     // Record chapter completion and refresh completed chapters list
     if (isAuthenticated && currentBook && currentChapter) {
         api.completeChapter(currentBook.name, currentChapter.chapter)
-          .then(async (result) => {
+          .then((result) => {
             // Check if this completes the book (last chapter)
             const isLastChapter = currentChapter.chapter === currentBook.chapters.length
 
@@ -448,46 +449,14 @@ function App() {
                     xp_reward: result.achievement.achievement.xp_reward
                   }
                 })
-              } else if (isLastChapter && !result.achievement?.awarded) {
-                // Book completion but achievement already unlocked - still celebrate!
-                // Fetch the existing achievement info using book progress API
-                try {
-                  const bookProgress = await api.getAllBookProgress()
-                  const thisBook = bookProgress.find(b => b.book === currentBook.name)
-                  if (thisBook && thisBook.achievement_unlocked) {
-                    const achievements = await api.getAchievementsWithStatus()
-                    const existingAchievement = achievements.find(a =>
-                      a.key === thisBook.achievement_key
-                    )
-                    queueReward({
-                      type: 'book_completion',
-                      book: currentBook.name,
-                      chaptersCompleted: currentBook.chapters.length,
-                      xpAwarded: result.xp_awarded,
-                      achievement: existingAchievement ? {
-                        name: existingAchievement.name,
-                        description: existingAchievement.description,
-                        icon: existingAchievement.icon,
-                        xp_reward: 0 // Already earned, no new XP
-                      } : undefined
-                    })
-                  } else {
-                    queueReward({
-                      type: 'book_completion',
-                      book: currentBook.name,
-                      chaptersCompleted: currentBook.chapters.length,
-                      xpAwarded: result.xp_awarded
-                    })
-                  }
-                } catch {
-                  // Fallback - show celebration without achievement details
-                  queueReward({
-                    type: 'book_completion',
-                    book: currentBook.name,
-                    chaptersCompleted: currentBook.chapters.length,
-                    xpAwarded: result.xp_awarded
-                  })
-                }
+              } else if (isLastChapter) {
+                // Book completion but achievement already unlocked - just celebrate!
+                queueReward({
+                  type: 'book_completion',
+                  book: currentBook.name,
+                  chaptersCompleted: currentBook.chapters.length,
+                  xpAwarded: result.xp_awarded
+                })
               } else if (result.achievement?.awarded && result.achievement.achievement) {
                 // Standalone achievement (streak, etc.)
                 queueReward({
@@ -502,43 +471,13 @@ function App() {
                 })
               }
             } else if (result.success && result.already_completed && isLastChapter) {
-              // Chapter already completed but it's the last chapter - still show celebration
-              try {
-                const bookProgress = await api.getAllBookProgress()
-                const thisBook = bookProgress.find(b => b.book === currentBook.name)
-                if (thisBook && thisBook.achievement_unlocked) {
-                  const achievements = await api.getAchievementsWithStatus()
-                  const existingAchievement = achievements.find(a =>
-                    a.key === thisBook.achievement_key
-                  )
-                  queueReward({
-                    type: 'book_completion',
-                    book: currentBook.name,
-                    chaptersCompleted: currentBook.chapters.length,
-                    xpAwarded: 0, // No new XP
-                    achievement: existingAchievement ? {
-                      name: existingAchievement.name,
-                      description: existingAchievement.description,
-                      icon: existingAchievement.icon,
-                      xp_reward: 0 // Already earned
-                    } : undefined
-                  })
-                } else {
-                  queueReward({
-                    type: 'book_completion',
-                    book: currentBook.name,
-                    chaptersCompleted: currentBook.chapters.length,
-                    xpAwarded: 0
-                  })
-                }
-              } catch {
-                queueReward({
-                  type: 'book_completion',
-                  book: currentBook.name,
-                  chaptersCompleted: currentBook.chapters.length,
-                  xpAwarded: 0
-                })
-              }
+              // Re-completing the last chapter - just celebrate the book finish
+              queueReward({
+                type: 'book_completion',
+                book: currentBook.name,
+                chaptersCompleted: currentBook.chapters.length,
+                xpAwarded: 0
+              })
             }
 
             // Refresh completed chapters to unlock the next one
@@ -665,9 +604,7 @@ function App() {
     const rows = Math.ceil(totalChapters / COLS)
     const bookColor = getPastelColor(currentBook?.name || 'Genesis')
     const textColor = getDarkerColor(currentBook?.name || 'Genesis')
-    // DISABLED: Re-enable only if human requests
-    // const bookHeaderImage = bookHeaderImages[currentBook?.name || '']
-    const bookHeaderImage = null
+    const progressPercent = Math.round((completedChapters.length / totalChapters) * 100)
 
     const getGridPosition = (index: number) => {
       const row = Math.floor(index / COLS)
@@ -677,8 +614,8 @@ function App() {
     }
 
     const ConnectionLines = () => {
-      const cellSize = 64
-      const gap = 12
+      const cellSize = 56
+      const gap = 8
       const totalWidth = COLS * cellSize + (COLS - 1) * gap
       const totalHeight = rows * cellSize + (rows - 1) * gap
 
@@ -699,6 +636,7 @@ function App() {
           {Array.from({ length: totalChapters - 1 }, (_, i) => {
             const from = getCenter(i)
             const to = getCenter(i + 1)
+            const isCompletedPath = completedChapters.includes(i + 1)
             return (
               <line
                 key={i}
@@ -706,9 +644,10 @@ function App() {
                 y1={from.y}
                 x2={to.x}
                 y2={to.y}
-                strokeWidth="4"
+                strokeWidth="3"
                 strokeLinecap="round"
-                className="stroke-stone-300 dark:stroke-stone-600"
+                stroke={isCompletedPath ? bookColor : undefined}
+                className={isCompletedPath ? "opacity-60" : "stroke-stone-200 dark:stroke-stone-700"}
               />
             )
           })}
@@ -717,143 +656,144 @@ function App() {
     }
 
     return (
-      <div className="flex-1 flex flex-col gap-6 animate-in fade-in">
-        <Card className="p-0 relative overflow-hidden">
-          {bookHeaderImage ? (
-            <div className="relative">
-              <img
-                src={bookHeaderImage}
-                alt={`${currentBook?.name} header`}
-                className="w-full h-32 object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-              <div className="absolute bottom-3 left-4 text-white">
-                <h2 className="text-xl font-semibold drop-shadow-lg">{currentBook?.name}</h2>
-                <span className="text-sm text-white/80">{totalChapters} Chapters</span>
-              </div>
-            </div>
-          ) : (
-            <div className="p-5">
+      <div className="flex-1 flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-500">
+        {/* Hero Header */}
+        <div
+          className="relative -mx-4 -mt-4 px-6 pt-8 pb-6 mb-6"
+          style={{
+            background: `linear-gradient(135deg, ${bookColor}40 0%, ${bookColor}20 50%, transparent 100%)`
+          }}
+        >
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-4">
               <div
-                className="absolute top-0 left-0 right-0 h-1"
-                style={{ background: `linear-gradient(90deg, ${bookColor}, hsl(var(--primary)))` }}
-              />
-              <div className="flex items-center gap-4">
-                <div
-                  className="w-12 h-12 rounded-lg flex items-center justify-center text-white shadow"
-                  style={{ background: `linear-gradient(135deg, ${bookColor}, hsl(var(--primary)))` }}
-                >
-                  <BookOpen className="w-6 h-6" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-semibold">{currentBook?.name}</h2>
-                  <span className="text-sm text-muted-foreground">{totalChapters} Chapters</span>
-                </div>
+                className="w-16 h-16 rounded-2xl flex items-center justify-center text-white shadow-lg"
+                style={{ background: `linear-gradient(135deg, ${textColor}, ${bookColor})` }}
+              >
+                <BookOpen className="w-8 h-8" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight">{currentBook?.name}</h1>
+                <p className="text-sm text-muted-foreground mt-0.5">{totalChapters} Chapters</p>
               </div>
             </div>
-          )}
-        </Card>
+            <div className="text-right">
+              <div
+                className="text-3xl font-bold"
+                style={{ color: textColor }}
+              >
+                {progressPercent}%
+              </div>
+              <p className="text-xs text-muted-foreground">Complete</p>
+            </div>
+          </div>
 
-        <div className="flex items-center gap-4">
-          <Progress
-            key={position.book}
-            value={(completedChapters.length / totalChapters) * 100}
-            className="flex-1"
-            animate
-            indicatorStyle={{
-              background: `linear-gradient(90deg,
-                ${getPastelColor(currentBook?.name || 'Genesis', 0.8, 0.45)} 0%,
-                ${getPastelColor(currentBook?.name || 'Genesis', 0.75, 0.55)} 25%,
-                ${bookColor} 50%,
-                ${getPastelColor(currentBook?.name || 'Genesis', 0.7, 0.7)} 75%,
-                ${getPastelColor(currentBook?.name || 'Genesis', 0.65, 0.8)} 100%
-              )`
-            }}
-          />
-          <span className="text-xs text-muted-foreground whitespace-nowrap">
-            {completedChapters.length} of {totalChapters} completed
-          </span>
+          {/* Progress Bar */}
+          <div className="mt-5">
+            {(() => {
+              const nextChapterIdx = chapters.findIndex((ch: { chapter: number }) => !completedChapters.includes(ch.chapter))
+              const nextChapter = nextChapterIdx >= 0 ? chapters[nextChapterIdx] : null
+              return (
+                <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                  <span>{completedChapters.length} of {totalChapters} chapters</span>
+                  {nextChapter && <span>{nextChapter.verses?.length || 0} verses in Ch. {nextChapter.chapter}</span>}
+                </div>
+              )
+            })()}
+            <div className="h-2 bg-stone-200 dark:bg-stone-800 rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-700 ease-out"
+                style={{
+                  width: `${progressPercent}%`,
+                  background: `linear-gradient(90deg, ${textColor}, ${bookColor})`
+                }}
+              />
+            </div>
+          </div>
         </div>
 
-        <Card className="p-6 flex justify-center overflow-hidden">
+        {/* Chapter Grid */}
+        <div className="flex-1 flex justify-center px-2">
           <div className="relative">
             <ConnectionLines />
             <div
-              className="grid gap-3 relative z-10"
-              style={{ gridTemplateColumns: `repeat(${COLS}, 64px)` }}
+              className="grid gap-2 relative z-10"
+              style={{ gridTemplateColumns: `repeat(${COLS}, 56px)` }}
             >
-            {chapters.map((chapter: { chapter: number; verses: unknown[] }, idx: number) => {
-              const { row, col } = getGridPosition(idx)
-              const chapterNum = chapter.chapter
-              const isCurrent = idx === position.chapter
-              const isCompleted = completedChapters.includes(chapterNum)
-              const isUnlocked = isChapterUnlocked(chapterNum)
-              const isLocked = !isUnlocked
-              const verseCount = chapter.verses?.length || 0
+              {chapters.map((chapter: { chapter: number; verses: unknown[] }, idx: number) => {
+                const { row, col } = getGridPosition(idx)
+                const chapterNum = chapter.chapter
+                const isCurrent = idx === position.chapter
+                const isCompleted = completedChapters.includes(chapterNum)
+                const isUnlocked = isChapterUnlocked(chapterNum)
+                const isLocked = !isUnlocked
+                const verseCount = chapter.verses?.length || 0
 
-              return (
-                <button
-                  key={idx}
-                  className={cn(
-                    "w-16 h-16 rounded-lg flex flex-col items-center justify-center gap-0.5 relative transition-all",
-                    !isLocked && "hover:-translate-y-1 hover:shadow-lg",
-                    isCurrent && !isLocked && "ring-2 ring-primary ring-offset-2",
-                    isLocked && "cursor-not-allowed saturate-[0.6] brightness-95"
-                  )}
-                  style={{
-                    backgroundColor: bookColor,
-                    color: textColor,
-                    gridColumn: col + 1,
-                    gridRow: row + 1
-                  }}
-                  onClick={() => !isLocked && selectChapterFromOverview(idx)}
-                  disabled={isLocked}
-                >
-                  {isLocked ? (
-                    <Lock className="w-5 h-5 opacity-60" />
-                  ) : (
-                    <span className="text-lg font-bold">{chapterNum}</span>
-                  )}
-                  {isCurrent && !isLocked && (
-                    <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-gradient-to-br from-yellow-400 to-amber-500 text-white flex items-center justify-center shadow">
-                      <Star className="w-3 h-3" fill="currentColor" />
-                    </div>
-                  )}
-                  {isCompleted && !isLocked && (
-                    <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-gradient-to-br from-green-500 to-green-600 text-white flex items-center justify-center shadow">
-                      <Check className="w-3 h-3" />
-                    </div>
-                  )}
-                  {isLocked && (
-                    <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-stone-400/70 dark:bg-stone-500/70 text-white flex items-center justify-center">
-                      <Lock className="w-2.5 h-2.5" />
-                    </div>
-                  )}
-                  {!isLocked && <span className="text-[10px] font-medium opacity-70">{verseCount}v</span>}
-                </button>
-              )
-            })}
+                return (
+                  <button
+                    key={idx}
+                    className={cn(
+                      "w-14 h-14 rounded-xl flex flex-col items-center justify-center relative transition-all duration-200",
+                      !isLocked && "hover:scale-105 hover:shadow-md active:scale-95",
+                      isCurrent && !isLocked && "ring-2 ring-offset-2 ring-offset-background",
+                      isLocked && "cursor-not-allowed"
+                    )}
+                    style={{
+                      backgroundColor: bookColor,
+                      color: textColor,
+                      filter: isLocked ? 'saturate(0.6) brightness(0.95)' : undefined,
+                      gridColumn: col + 1,
+                      gridRow: row + 1,
+                      ringColor: isCurrent ? textColor : undefined,
+                      boxShadow: isCompleted && !isLocked ? `0 4px 12px ${bookColor}50` : undefined
+                    }}
+                    onClick={() => !isLocked && selectChapterFromOverview(idx)}
+                    disabled={isLocked}
+                  >
+                    {isLocked ? (
+                      <Lock className="w-4 h-4 opacity-40" />
+                    ) : (
+                      <>
+                        <span className="text-base font-bold">{chapterNum}</span>
+                        <span className="text-[9px] font-medium opacity-60">{verseCount}v</span>
+                      </>
+                    )}
+
+                    {/* Status Badge */}
+                    {isCompleted && !isLocked && (
+                      <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-green-500 text-white flex items-center justify-center shadow-sm">
+                        <Check className="w-3 h-3" strokeWidth={3} />
+                      </div>
+                    )}
+                    {isCurrent && !isLocked && !isCompleted && (
+                      <div
+                        className="absolute -top-1 -right-1 w-5 h-5 rounded-full text-white flex items-center justify-center shadow-sm"
+                        style={{ background: textColor }}
+                      >
+                        <Star className="w-3 h-3" fill="currentColor" />
+                      </div>
+                    )}
+                  </button>
+                )
+              })}
             </div>
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-5">
-          <div className="flex justify-center gap-12">
-            <div className="text-center">
-              <span className="block text-3xl font-bold text-primary">{verses.length}</span>
-              <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Verses in Chapter</span>
-            </div>
-            <div className="text-center">
-              <span className="block text-3xl font-bold text-primary">{position.verse + 1}</span>
-              <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Current Verse</span>
-            </div>
-          </div>
-        </Card>
-
-        <Button size="lg" className="mt-auto" onClick={() => setViewMode('reading')}>
-          <ArrowRight className="w-5 h-5" />
-          Continue Reading
-        </Button>
+        {/* Continue Button */}
+        <div className="mt-6 pt-4 border-t">
+          <Button
+            size="lg"
+            className="w-full h-12 text-base font-semibold"
+            style={{
+              background: `linear-gradient(135deg, ${textColor}, ${bookColor})`,
+            }}
+            onClick={() => setViewMode('reading')}
+          >
+            <ArrowRight className="w-5 h-5 mr-2" />
+            Continue Reading
+          </Button>
+        </div>
       </div>
     )
   }
@@ -898,32 +838,50 @@ function App() {
   }
 
   const QuizView = () => (
-    <div className="flex-1 flex flex-col animate-in fade-in">
-      <div className="flex items-center gap-4 py-4 mb-8">
-        <Button variant="outline" size="icon" onClick={exitQuiz}>
+    <div className="flex-1 flex flex-col animate-in fade-in relative">
+      {/* Player avatar standing in bottom-right corner */}
+      {user && (
+        <div className="fixed bottom-24 right-4 z-20 animate-in slide-in-from-bottom-8 duration-700 pointer-events-none">
+          <img
+            src={getAvatarImageSrc(user.avatar_config ?? DEFAULT_AVATAR_CONFIG)}
+            alt="Your avatar"
+            className="h-36 w-36 object-contain drop-shadow-xl"
+            draggable={false}
+          />
+        </div>
+      )}
+
+      {/* Header with progress and exit */}
+      <div className="flex items-center gap-3 py-4 mb-6">
+        <Button variant="ghost" size="icon" onClick={exitQuiz} className="hover:bg-muted/80">
           <X className="w-5 h-5" />
         </Button>
-        <Progress value={progressPercent} className="flex-1" />
-        <span className="text-sm font-semibold text-muted-foreground min-w-12 text-right">
+        <div className="flex-1 flex flex-col gap-1">
+          <Progress value={progressPercent} className="h-2" />
+        </div>
+        <span className="text-sm font-semibold text-muted-foreground tabular-nums">
           {answeredQuestions}/{totalQuestions}
         </span>
       </div>
 
       {quizState.inRetryMode && (
-        <div className="bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 p-3 rounded-lg text-center font-semibold text-sm mb-8 animate-in slide-in-from-top">
+        <div className="bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30 text-amber-800 dark:text-amber-200 px-4 py-3 rounded-xl text-center font-semibold text-sm mb-6 animate-in slide-in-from-top border border-amber-200/50 dark:border-amber-700/50">
           Let's try those again
         </div>
       )}
 
       <div className="flex-1 flex flex-col relative">
-        <p className="text-xl font-medium mb-8">{currentQuestion?.question}</p>
+        {/* Question card */}
+        <div className="bg-gradient-to-br from-muted/30 to-muted/50 dark:from-muted/20 dark:to-muted/30 rounded-2xl p-6 mb-8 border border-border/50">
+          <p className="text-xl md:text-2xl font-medium leading-relaxed">{currentQuestion?.question}</p>
+        </div>
 
         {/* Sparkles and XP popup for correct answers */}
         <Sparkles show={quizState.showResult && quizState.isCorrect} />
         <XPPopup show={quizState.showResult && quizState.isCorrect} />
 
         <div className="flex flex-col gap-3">
-          {currentQuestion?.options.map((option) => {
+          {currentQuestion?.options.map((option, index) => {
             const isSelected = quizState.selectedAnswer === option.letter
             const isCorrect = quizState.showResult && isSelected && quizState.isCorrect
             const isIncorrect = quizState.showResult && isSelected && !quizState.isCorrect
@@ -932,11 +890,13 @@ function App() {
             return (
               <button
                 key={option.letter}
+                style={{ animationDelay: `${index * 50}ms` }}
                 className={cn(
-                  "p-4 rounded-lg border-2 text-left flex items-start gap-4 transition-all relative",
-                  !quizState.showResult && "hover:translate-x-1 hover:border-primary hover:bg-muted/50",
-                  isCorrect && "border-green-500 bg-green-500/10 animate-correct-pulse",
-                  isIncorrect && "border-red-500 bg-red-500/10 animate-wrong-shake",
+                  "p-4 rounded-xl border-2 text-left flex items-start gap-4 transition-all relative animate-in fade-in slide-in-from-bottom-2",
+                  "bg-card shadow-sm hover:shadow-md",
+                  !quizState.showResult && "hover:translate-x-1 hover:border-primary hover:bg-accent/50 active:scale-[0.99]",
+                  isCorrect && "border-green-500 bg-green-500/10 shadow-green-500/20 shadow-lg animate-correct-pulse",
+                  isIncorrect && "border-red-500 bg-red-500/10 shadow-red-500/20 shadow-lg animate-wrong-shake",
                   isCorrectAnswer && !isSelected && "border-green-500/50 bg-green-500/5",
                   !isSelected && !isCorrectAnswer && quizState.showResult && "opacity-40"
                 )}
@@ -945,16 +905,16 @@ function App() {
               >
                 <span
                   className={cn(
-                    "w-8 h-8 rounded-lg flex items-center justify-center font-semibold text-sm flex-shrink-0 transition-all",
+                    "w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm flex-shrink-0 transition-all",
                     isCorrect && "bg-green-500 text-white animate-glow-correct",
                     isIncorrect && "bg-red-500 text-white animate-glow-wrong",
                     isCorrectAnswer && !isSelected && "bg-green-500/70 text-white",
                     !isCorrect && !isIncorrect && !isCorrectAnswer && "bg-muted text-muted-foreground"
                   )}
                 >
-                  {isCorrect ? <Check className="w-4 h-4" /> : isIncorrect ? <X className="w-4 h-4" /> : option.letter}
+                  {isCorrect ? <Check className="w-5 h-5" /> : isIncorrect ? <X className="w-5 h-5" /> : option.letter}
                 </span>
-                <span className="flex-1 leading-relaxed">{option.text}</span>
+                <span className="flex-1 leading-relaxed pt-1">{option.text}</span>
               </button>
             )
           })}
@@ -963,15 +923,15 @@ function App() {
         {quizState.showResult && (
           <div
             className={cn(
-              "flex items-center justify-center gap-3 p-5 rounded-xl font-bold mt-8 animate-result-pop",
+              "flex items-center justify-center gap-3 p-5 rounded-2xl font-bold mt-8 animate-result-pop shadow-lg",
               quizState.isCorrect
-                ? "bg-gradient-to-r from-green-500/20 to-emerald-500/20 text-green-600 dark:text-green-400 border border-green-500/30"
-                : "bg-gradient-to-r from-red-500/20 to-rose-500/20 text-red-600 dark:text-red-400 border border-red-500/30"
+                ? "bg-gradient-to-r from-green-500/20 via-emerald-500/20 to-teal-500/20 text-green-600 dark:text-green-400 border border-green-500/30 shadow-green-500/10"
+                : "bg-gradient-to-r from-red-500/20 via-rose-500/20 to-pink-500/20 text-red-600 dark:text-red-400 border border-red-500/30 shadow-red-500/10"
             )}
           >
             <div className={cn(
-              "w-10 h-10 rounded-full flex items-center justify-center",
-              quizState.isCorrect ? "bg-green-500" : "bg-red-500"
+              "w-11 h-11 rounded-full flex items-center justify-center shadow-md",
+              quizState.isCorrect ? "bg-gradient-to-br from-green-400 to-emerald-500" : "bg-gradient-to-br from-red-400 to-rose-500"
             )}>
               {quizState.isCorrect ? (
                 <Check className="w-6 h-6 text-white" />
@@ -986,8 +946,13 @@ function App() {
 
       {quizState.showResult && (
         <div className="py-8 flex justify-center">
-          <Button size="lg" onClick={nextQuestion} className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <Button
+            size="lg"
+            onClick={nextQuestion}
+            className="animate-in fade-in slide-in-from-bottom-4 duration-300 px-8 rounded-xl shadow-lg hover:shadow-xl transition-shadow"
+          >
             Continue
+            <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
         </div>
       )}

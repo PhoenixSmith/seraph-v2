@@ -132,7 +132,7 @@ export function BookCompletionReward({
           <div className="absolute inset-0 -m-4 rounded-full bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 animate-reward-spin opacity-30 blur-md" />
 
           {/* Icon container */}
-          <div className="relative w-24 h-24 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center border-4 border-amber-500/50 shadow-lg shadow-amber-500/20">
+          <div className="relative w-24 h-24 rounded-full bg-gradient-to-br from-amber-100 to-amber-50 dark:from-slate-700 dark:to-slate-800 flex items-center justify-center border-4 border-amber-500/50 shadow-lg shadow-amber-500/20">
             <span className="text-5xl animate-reward-icon-pulse">{bookIcon}</span>
           </div>
 
@@ -144,38 +144,44 @@ export function BookCompletionReward({
 
         {/* Book name */}
         <div className="space-y-1">
-          <h2 className="text-3xl font-bold text-white font-serif">{book}</h2>
-          <div className="flex items-center justify-center gap-2 text-slate-400">
+          <h2 className="text-3xl font-bold text-slate-900 dark:text-white font-serif">{book}</h2>
+          <div className="flex items-center justify-center gap-2 text-slate-600 dark:text-slate-400">
             <Book className="w-4 h-4" />
             <span>{chaptersCompleted} chapters completed</span>
           </div>
         </div>
 
-        {/* XP reward section */}
-        <div className="flex flex-col items-center gap-2 py-4 border-y border-slate-700/50 w-full">
-          <XPBurst xp={xpAwarded} className="text-3xl" />
-          {totalXP && (
-            <span className="text-sm text-slate-400">
-              Total XP: <span className="text-amber-400 font-semibold">{totalXP.toLocaleString()}</span>
-            </span>
-          )}
-        </div>
+        {/* XP reward section - only show if XP was earned */}
+        {xpAwarded > 0 ? (
+          <div className="flex flex-col items-center gap-2 py-4 border-y border-slate-300/50 dark:border-slate-700/50 w-full">
+            <XPBurst xp={xpAwarded} className="text-3xl" />
+            {totalXP && (
+              <span className="text-sm text-slate-600 dark:text-slate-400">
+                Total XP: <span className="text-amber-500 dark:text-amber-400 font-semibold">{totalXP.toLocaleString()}</span>
+              </span>
+            )}
+          </div>
+        ) : (
+          <div className="py-4 border-y border-slate-300/50 dark:border-slate-700/50 w-full text-center">
+            <span className="text-slate-600 dark:text-slate-400">Another journey through {book} complete!</span>
+          </div>
+        )}
 
         {/* Achievement unlock (if earned) */}
         {achievement && (
           <div className="w-full animate-reward-achievement-slide">
-            <div className="bg-gradient-to-r from-purple-900/50 via-purple-800/50 to-purple-900/50 rounded-xl p-4 border border-purple-500/30">
-              <div className="flex items-center gap-2 text-purple-400 text-xs font-semibold uppercase tracking-wider mb-2">
+            <div className="bg-gradient-to-r from-purple-100/80 via-purple-50/80 to-purple-100/80 dark:from-purple-900/50 dark:via-purple-800/50 dark:to-purple-900/50 rounded-xl p-4 border border-purple-500/30">
+              <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400 text-xs font-semibold uppercase tracking-wider mb-2">
                 <Sparkles className="w-4 h-4" />
                 Achievement Unlocked!
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-3xl">{achievement.icon}</span>
                 <div className="flex-1 text-left">
-                  <h4 className="font-bold text-white">{achievement.name}</h4>
-                  <p className="text-sm text-slate-400">{achievement.description}</p>
+                  <h4 className="font-bold text-slate-900 dark:text-white">{achievement.name}</h4>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">{achievement.description}</p>
                 </div>
-                <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/30">
+                <Badge className="bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/30">
                   +{achievement.xp_reward} XP
                 </Badge>
               </div>
@@ -184,7 +190,7 @@ export function BookCompletionReward({
         )}
 
         {/* Motivational message */}
-        <p className="text-sm text-slate-500 italic">
+        <p className="text-sm text-slate-500 dark:text-slate-500 italic">
           "Your word is a lamp to my feet and a light to my path." — Psalm 119:105
         </p>
       </div>

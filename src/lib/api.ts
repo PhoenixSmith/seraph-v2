@@ -746,12 +746,12 @@ export async function checkAllMiscAchievements(): Promise<CheckMiscAchievementsR
 export type ChallengeStatus = 'pending' | 'active' | 'completed' | 'declined' | 'cancelled'
 
 export interface Challenge {
-  id: string
+  challenge_id: string
   challenger_group_id: string
   challenger_group_name: string
   challenged_group_id: string
   challenged_group_name: string
-  status: ChallengeStatus
+  challenge_status: ChallengeStatus
   created_at: string
   start_time: string | null
   end_time: string | null

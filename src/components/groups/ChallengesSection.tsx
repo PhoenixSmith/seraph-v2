@@ -19,9 +19,9 @@ export function ChallengesSection({ groupId, isLeader }: ChallengesSectionProps)
     useCallback(() => api.getGroupChallenges(groupId), [groupId])
   )
 
-  const activeChallenges = challenges?.filter(c => c.status === 'active') ?? []
-  const pendingChallenges = challenges?.filter(c => c.status === 'pending') ?? []
-  const completedChallenges = challenges?.filter(c => c.status === 'completed') ?? []
+  const activeChallenges = challenges?.filter(c => c.challenge_status === 'active') ?? []
+  const pendingChallenges = challenges?.filter(c => c.challenge_status === 'pending') ?? []
+  const completedChallenges = challenges?.filter(c => c.challenge_status === 'completed') ?? []
 
   const handleRespond = async (challengeId: string, accept: boolean) => {
     try {
@@ -105,7 +105,7 @@ export function ChallengesSection({ groupId, isLeader }: ChallengesSectionProps)
             ) : (
               activeChallenges.map(challenge => (
                 <ChallengeCard
-                  key={challenge.id}
+                  key={challenge.challenge_id}
                   challenge={challenge}
                   currentGroupId={groupId}
                   onRespond={handleRespond}
@@ -123,7 +123,7 @@ export function ChallengesSection({ groupId, isLeader }: ChallengesSectionProps)
             ) : (
               pendingChallenges.map(challenge => (
                 <ChallengeCard
-                  key={challenge.id}
+                  key={challenge.challenge_id}
                   challenge={challenge}
                   currentGroupId={groupId}
                   onRespond={handleRespond}
@@ -141,7 +141,7 @@ export function ChallengesSection({ groupId, isLeader }: ChallengesSectionProps)
             ) : (
               completedChallenges.slice(0, 10).map(challenge => (
                 <ChallengeCard
-                  key={challenge.id}
+                  key={challenge.challenge_id}
                   challenge={challenge}
                   currentGroupId={groupId}
                   onRespond={handleRespond}

@@ -47,12 +47,12 @@ export function ChallengeCard({ challenge, currentGroupId, onRespond, onCancel }
 
   const isWinner = challenge.winner_group_id === currentGroupId
   const isLoser = challenge.winner_group_id !== null && challenge.winner_group_id !== currentGroupId
-  const isTie = challenge.status === 'completed' && challenge.winner_group_id === null
+  const isTie = challenge.challenge_status === 'completed' && challenge.winner_group_id === null
 
   const handleRespond = async (accept: boolean) => {
     setIsLoading(true)
     try {
-      await onRespond(challenge.id, accept)
+      await onRespond(challenge.challenge_id, accept)
     } finally {
       setIsLoading(false)
     }
@@ -61,7 +61,7 @@ export function ChallengeCard({ challenge, currentGroupId, onRespond, onCancel }
   const handleCancel = async () => {
     setIsLoading(true)
     try {
-      await onCancel(challenge.id)
+      await onCancel(challenge.challenge_id)
     } finally {
       setIsLoading(false)
     }
@@ -70,7 +70,7 @@ export function ChallengeCard({ challenge, currentGroupId, onRespond, onCancel }
   return (
     <Card className={cn(
       'overflow-hidden',
-      challenge.status === 'active' && 'border-primary/50',
+      challenge.challenge_status === 'active' && 'border-primary/50',
       isWinner && 'border-green-500/50 bg-green-500/5',
       isLoser && 'border-red-500/50 bg-red-500/5',
       isTie && 'border-yellow-500/50 bg-yellow-500/5'
@@ -83,21 +83,21 @@ export function ChallengeCard({ challenge, currentGroupId, onRespond, onCancel }
             <span className="font-medium">vs {opponentName}</span>
           </div>
           <Badge variant={
-            challenge.status === 'active' ? 'default' :
-            challenge.status === 'pending' ? 'secondary' :
-            challenge.status === 'completed' ? 'outline' :
+            challenge.challenge_status === 'active' ? 'default' :
+            challenge.challenge_status === 'pending' ? 'secondary' :
+            challenge.challenge_status === 'completed' ? 'outline' :
             'destructive'
           }>
-            {challenge.status === 'active' && 'Active'}
-            {challenge.status === 'pending' && (isChallenger ? 'Awaiting Response' : 'Challenge Received')}
-            {challenge.status === 'completed' && (isWinner ? 'Victory!' : isLoser ? 'Defeated' : 'Tie')}
-            {challenge.status === 'declined' && 'Declined'}
-            {challenge.status === 'cancelled' && 'Cancelled'}
+            {challenge.challenge_status === 'active' && 'Active'}
+            {challenge.challenge_status === 'pending' && (isChallenger ? 'Awaiting Response' : 'Challenge Received')}
+            {challenge.challenge_status === 'completed' && (isWinner ? 'Victory!' : isLoser ? 'Defeated' : 'Tie')}
+            {challenge.challenge_status === 'declined' && 'Declined'}
+            {challenge.challenge_status === 'cancelled' && 'Cancelled'}
           </Badge>
         </div>
 
         {/* Active Challenge: Scores and Timer */}
-        {challenge.status === 'active' && challenge.end_time && (
+        {challenge.challenge_status === 'active' && challenge.end_time && (
           <>
             <div className="flex items-center justify-between mb-3 text-sm text-muted-foreground">
               <div className="flex items-center gap-1">
@@ -134,7 +134,7 @@ export function ChallengeCard({ challenge, currentGroupId, onRespond, onCancel }
         )}
 
         {/* Completed Challenge: Final Result */}
-        {challenge.status === 'completed' && (
+        {challenge.challenge_status === 'completed' && (
           <div className="text-center py-2">
             <div className="flex items-center justify-center gap-2 mb-2">
               <Trophy className={cn(
@@ -154,7 +154,7 @@ export function ChallengeCard({ challenge, currentGroupId, onRespond, onCancel }
         )}
 
         {/* Pending: Action Buttons */}
-        {challenge.status === 'pending' && (
+        {challenge.challenge_status === 'pending' && (
           <div className="mt-3">
             {challenge.can_respond && (
               <div className="flex gap-2">

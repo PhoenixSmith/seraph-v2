@@ -7,7 +7,8 @@ import { cn } from '@/lib/utils'
 const CATEGORY_CONFIG: Record<string, {
   title: string
   gradient: string
-  bgGradient: string
+  bgGradientLight: string
+  bgGradientDark: string
   borderColor: string
   confettiColors: string[]
   Icon: React.ComponentType<{ className?: string }>
@@ -15,7 +16,8 @@ const CATEGORY_CONFIG: Record<string, {
   book_completion: {
     title: 'BOOK COMPLETED',
     gradient: 'from-amber-500 to-yellow-500',
-    bgGradient: 'from-amber-900/50 via-amber-800/50 to-amber-900/50',
+    bgGradientLight: 'from-amber-100/80 via-amber-50/80 to-amber-100/80',
+    bgGradientDark: 'dark:from-amber-900/50 dark:via-amber-800/50 dark:to-amber-900/50',
     borderColor: 'border-amber-500/30',
     confettiColors: ['#FFD700', '#FFA500', '#FF8C00', '#FFEAA7'],
     Icon: Trophy
@@ -23,7 +25,8 @@ const CATEGORY_CONFIG: Record<string, {
   streak: {
     title: 'STREAK MILESTONE',
     gradient: 'from-orange-500 to-red-500',
-    bgGradient: 'from-orange-900/50 via-red-800/50 to-orange-900/50',
+    bgGradientLight: 'from-orange-100/80 via-red-50/80 to-orange-100/80',
+    bgGradientDark: 'dark:from-orange-900/50 dark:via-red-800/50 dark:to-orange-900/50',
     borderColor: 'border-orange-500/30',
     confettiColors: ['#FF6B6B', '#FF8E53', '#FFA07A', '#FF4500'],
     Icon: Flame
@@ -31,7 +34,8 @@ const CATEGORY_CONFIG: Record<string, {
   xp_milestone: {
     title: 'XP MILESTONE',
     gradient: 'from-emerald-500 to-teal-500',
-    bgGradient: 'from-emerald-900/50 via-teal-800/50 to-emerald-900/50',
+    bgGradientLight: 'from-emerald-100/80 via-teal-50/80 to-emerald-100/80',
+    bgGradientDark: 'dark:from-emerald-900/50 dark:via-teal-800/50 dark:to-emerald-900/50',
     borderColor: 'border-emerald-500/30',
     confettiColors: ['#4ECDC4', '#45B7D1', '#2ECC71', '#1ABC9C'],
     Icon: Target
@@ -39,7 +43,8 @@ const CATEGORY_CONFIG: Record<string, {
   special: {
     title: 'SPECIAL ACHIEVEMENT',
     gradient: 'from-purple-500 to-pink-500',
-    bgGradient: 'from-purple-900/50 via-pink-800/50 to-purple-900/50',
+    bgGradientLight: 'from-purple-100/80 via-pink-50/80 to-purple-100/80',
+    bgGradientDark: 'dark:from-purple-900/50 dark:via-pink-800/50 dark:to-purple-900/50',
     borderColor: 'border-purple-500/30',
     confettiColors: ['#9B59B6', '#E91E63', '#DDA0DD', '#FF69B4'],
     Icon: Award
@@ -47,7 +52,8 @@ const CATEGORY_CONFIG: Record<string, {
   challenge: {
     title: 'CHALLENGE VICTORY',
     gradient: 'from-blue-500 to-indigo-500',
-    bgGradient: 'from-blue-900/50 via-indigo-800/50 to-blue-900/50',
+    bgGradientLight: 'from-blue-100/80 via-indigo-50/80 to-blue-100/80',
+    bgGradientDark: 'dark:from-blue-900/50 dark:via-indigo-800/50 dark:to-blue-900/50',
     borderColor: 'border-blue-500/30',
     confettiColors: ['#3498DB', '#5DADE2', '#85C1E9', '#1E90FF'],
     Icon: Medal
@@ -56,11 +62,11 @@ const CATEGORY_CONFIG: Record<string, {
 
 // Rarity based on XP reward
 const getRarity = (xpReward: number): { label: string; color: string; glow: string } => {
-  if (xpReward >= 300) return { label: 'LEGENDARY', color: 'text-orange-400', glow: 'shadow-orange-500/50' }
-  if (xpReward >= 150) return { label: 'EPIC', color: 'text-purple-400', glow: 'shadow-purple-500/50' }
-  if (xpReward >= 75) return { label: 'RARE', color: 'text-blue-400', glow: 'shadow-blue-500/50' }
-  if (xpReward >= 30) return { label: 'UNCOMMON', color: 'text-green-400', glow: 'shadow-green-500/50' }
-  return { label: 'COMMON', color: 'text-slate-400', glow: 'shadow-slate-500/50' }
+  if (xpReward >= 300) return { label: 'LEGENDARY', color: 'text-orange-600 dark:text-orange-400', glow: 'shadow-orange-500/50' }
+  if (xpReward >= 150) return { label: 'EPIC', color: 'text-purple-600 dark:text-purple-400', glow: 'shadow-purple-500/50' }
+  if (xpReward >= 75) return { label: 'RARE', color: 'text-blue-600 dark:text-blue-400', glow: 'shadow-blue-500/50' }
+  if (xpReward >= 30) return { label: 'UNCOMMON', color: 'text-green-600 dark:text-green-400', glow: 'shadow-green-500/50' }
+  return { label: 'COMMON', color: 'text-slate-600 dark:text-slate-400', glow: 'shadow-slate-500/50' }
 }
 
 export interface Achievement {
@@ -131,7 +137,8 @@ export function AchievementUnlockReward({
           {/* Main icon container */}
           <div className={cn(
             'relative w-28 h-28 rounded-2xl bg-gradient-to-br flex items-center justify-center border-2 shadow-2xl transform rotate-3 hover:rotate-0 transition-transform',
-            config.bgGradient,
+            config.bgGradientLight,
+            config.bgGradientDark,
             config.borderColor
           )}>
             <span className="text-6xl animate-reward-icon-pulse">{achievement.icon}</span>
@@ -148,17 +155,17 @@ export function AchievementUnlockReward({
         <Badge className={cn(
           'px-4 py-1 font-bold tracking-wider border-0',
           rarity.color,
-          'bg-slate-800/80'
+          'bg-slate-200/80 dark:bg-slate-800/80'
         )}>
           {rarity.label}
         </Badge>
 
         {/* Achievement name and description */}
         <div className="space-y-2">
-          <h2 className="text-2xl font-bold text-white font-serif leading-tight">
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white font-serif leading-tight">
             {achievement.name}
           </h2>
-          <p className="text-slate-400 text-sm max-w-xs mx-auto">
+          <p className="text-slate-600 dark:text-slate-400 text-sm max-w-xs mx-auto">
             {achievement.description}
           </p>
         </div>
@@ -166,18 +173,19 @@ export function AchievementUnlockReward({
         {/* XP reward section */}
         <div className={cn(
           'flex flex-col items-center gap-2 py-4 px-8 rounded-xl w-full',
-          config.bgGradient
+          config.bgGradientLight,
+          config.bgGradientDark
         )}>
           <XPBurst xp={achievement.xp_reward} className="text-4xl" />
           {totalXP && (
-            <span className="text-sm text-slate-400">
-              Total XP: <span className="text-amber-400 font-semibold">{totalXP.toLocaleString()}</span>
+            <span className="text-sm text-slate-600 dark:text-slate-400">
+              Total XP: <span className="text-amber-500 dark:text-amber-400 font-semibold">{totalXP.toLocaleString()}</span>
             </span>
           )}
         </div>
 
         {/* Progress indicator for collection */}
-        <div className="flex items-center gap-2 text-xs text-slate-500">
+        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-500">
           <Trophy className="w-4 h-4" />
           <span>Achievement added to your collection</span>
         </div>

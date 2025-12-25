@@ -37,8 +37,7 @@ export function GroupsPage({ currentUserId }: GroupsPageProps) {
 
   return (
     <div className="py-4">
-      <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
-        <h2 className="text-2xl font-semibold">Groups</h2>
+      <div className="flex justify-center items-center mb-6 flex-wrap gap-4">
         <div className="flex items-center gap-3">
           <InvitesList />
           <Button variant="outline" onClick={() => setShowJoinModal(true)}>
