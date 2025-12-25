@@ -108,10 +108,21 @@ export function CreateGroupModal({ isOpen, onClose, onCreated }: CreateGroupModa
             )}
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>
+            <Button
+              type="button"
+              variant="duolingo-secondary"
+              className="h-10 px-4 rounded-xl"
+              onClick={onClose}
+              disabled={isLoading}
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading || !name.trim()}>
+            <Button
+              type="submit"
+              variant="duolingo-blue"
+              className="h-10 px-4 rounded-xl"
+              disabled={isLoading || !name.trim()}
+            >
               {isLoading ? 'Creating...' : 'Create Group'}
             </Button>
           </DialogFooter>

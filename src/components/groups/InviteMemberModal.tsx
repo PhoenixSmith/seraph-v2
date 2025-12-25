@@ -119,7 +119,11 @@ export function InviteMemberModal({ isOpen, onClose, groupId, inviteCode, onInvi
                 )}
               </Button>
             </div>
-            <Button variant="outline" size="sm" onClick={handleCopyLink} className="w-full">
+            <Button
+              variant="duolingo-secondary"
+              className="h-9 px-4 rounded-xl w-full"
+              onClick={handleCopyLink}
+            >
               {copied === 'link' ? (
                 <Check className="h-4 w-4 text-emerald-500" />
               ) : (
@@ -158,10 +162,21 @@ export function InviteMemberModal({ isOpen, onClose, groupId, inviteCode, onInvi
             )}
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>
+            <Button
+              type="button"
+              variant="duolingo-secondary"
+              className="h-10 px-4 rounded-xl"
+              onClick={onClose}
+              disabled={isLoading}
+            >
               Close
             </Button>
-            <Button type="submit" disabled={isLoading || !identifier.trim()}>
+            <Button
+              type="submit"
+              variant="duolingo-blue"
+              className="h-10 px-4 rounded-xl"
+              disabled={isLoading || !identifier.trim()}
+            >
               {isLoading ? 'Sending...' : 'Send Invite'}
             </Button>
           </DialogFooter>

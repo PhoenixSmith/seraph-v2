@@ -102,10 +102,21 @@ export function JoinByCodeModal({ isOpen, onClose, onJoined }: JoinByCodeModalPr
             )}
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>
+            <Button
+              type="button"
+              variant="duolingo-secondary"
+              className="h-10 px-4 rounded-xl"
+              onClick={onClose}
+              disabled={isLoading}
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading || !code.trim() || !!success}>
+            <Button
+              type="submit"
+              variant="duolingo-blue"
+              className="h-10 px-4 rounded-xl"
+              disabled={isLoading || !code.trim() || !!success}
+            >
               {isLoading ? 'Joining...' : 'Join Group'}
             </Button>
           </DialogFooter>

@@ -3,6 +3,7 @@ import * as api from '@/lib/api'
 import { Card } from '@/components/ui/card'
 import { BookOpen, UserPlus, Trophy } from 'lucide-react'
 import { UserAvatar } from '@/components/avatar/UserAvatar'
+import { MemberHoverCard } from './MemberHoverCard'
 
 interface GroupActivityFeedProps {
   groupId: string
@@ -74,7 +75,13 @@ export function GroupActivityFeed({ groupId }: GroupActivityFeedProps) {
     <Card className="divide-y divide-border">
       {activities.map((activity) => (
         <div key={activity.activity_id} className="flex items-center gap-3 p-3">
-          <UserAvatar size="sm" editable={false} config={activity.user_avatar_config} />
+          <MemberHoverCard
+            userId={activity.user_id}
+            userName={activity.user_name}
+            avatarConfig={activity.user_avatar_config}
+          >
+            <UserAvatar size="sm" editable={false} config={activity.user_avatar_config} />
+          </MemberHoverCard>
           <div className="flex-1 min-w-0">
             <p className="text-sm">
               <span className="font-medium">{activity.user_name || 'Anonymous'}</span>{' '}

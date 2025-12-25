@@ -217,7 +217,8 @@ export function CreateChallengeModal({
                   />
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="duolingo-blue"
+                    className="h-10 px-4 rounded-xl"
                     onClick={handleLookup}
                     disabled={isLoading || isLookingUp || !groupId.trim()}
                   >
@@ -256,10 +257,21 @@ export function CreateChallengeModal({
           )}
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>
+            <Button
+              type="button"
+              variant="duolingo-secondary"
+              className="h-10 px-4 rounded-xl"
+              onClick={onClose}
+              disabled={isLoading}
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading || !targetGroup}>
+            <Button
+              type="submit"
+              variant="duolingo-orange"
+              className="h-10 px-4 rounded-xl"
+              disabled={isLoading || !targetGroup}
+            >
               {isLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />

@@ -119,10 +119,17 @@ export function TransferLeaderModal({
         )}
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isLoading}>
+          <Button
+            variant="duolingo-secondary"
+            className="h-10 px-4 rounded-xl"
+            onClick={onClose}
+            disabled={isLoading}
+          >
             Cancel
           </Button>
           <Button
+            variant="duolingo-blue"
+            className="h-10 px-4 rounded-xl"
             onClick={handleTransfer}
             disabled={isLoading || !selectedUserId || eligibleMembers.length === 0}
           >

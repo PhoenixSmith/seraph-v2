@@ -28,6 +28,8 @@ const buttonVariants = cva(
           "bg-white text-[#4b4b4b] font-bold uppercase tracking-wide rounded-2xl border-2 border-[#e5e5e5] border-b-4 border-b-[#e5e5e5] hover:bg-[#f7f7f7] active:border-b-2 active:mt-[2px] active:mb-[-2px] transition-all dark:bg-muted dark:text-foreground dark:border-border dark:border-b-border/80",
         "duolingo-orange":
           "bg-[#ff9500] text-white font-bold uppercase tracking-wide rounded-2xl border-b-4 border-[#e68a00] hover:bg-[#ffaa1a] active:border-b-0 active:mt-1 active:mb-[-4px] transition-all shadow-lg",
+        "duolingo-destructive":
+          "bg-[#ff4b4b] text-white font-bold uppercase tracking-wide rounded-2xl border-b-4 border-[#ea2b2b] hover:bg-[#ff5c5c] active:border-b-0 active:mt-1 active:mb-[-4px] transition-all shadow-lg",
       },
       size: {
         default: "h-10 px-4 py-2",

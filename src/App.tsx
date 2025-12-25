@@ -779,19 +779,23 @@ function App() {
                   <button
                     key={idx}
                     className={cn(
-                      "w-14 h-14 rounded-xl flex flex-col items-center justify-center relative transition-all duration-200",
-                      !isLocked && "hover:scale-105 hover:shadow-md active:scale-95",
+                      "w-14 h-14 rounded-2xl flex flex-col items-center justify-center relative transition-all duration-200 border-b-4 border-l border-r border-t font-bold text-white",
+                      !isLocked && "hover:-translate-y-0.5 active:border-b-2 active:mt-[2px] active:mb-[-2px]",
                       isCurrent && !isLocked && "ring-2 ring-offset-2 ring-offset-background",
                       isLocked && "cursor-not-allowed"
                     )}
                     style={{
                       backgroundColor: bookColor,
+                      filter: isLocked ? 'saturate(0.5)' : undefined,
                       color: textColor,
-                      filter: isLocked ? 'saturate(0.6) brightness(0.95)' : undefined,
+                      borderBottomColor: getDarkerColor(currentBook?.name || 'Genesis'),
+                      borderTopColor: `${bookColor}80`,
+                      borderLeftColor: `${bookColor}80`,
+                      borderRightColor: `${bookColor}80`,
+                      boxShadow: isCompleted && !isLocked ? `0 4px 12px ${bookColor}50` : undefined,
                       gridColumn: col + 1,
                       gridRow: row + 1,
                       ringColor: isCurrent ? textColor : undefined,
-                      boxShadow: isCompleted && !isLocked ? `0 4px 12px ${bookColor}50` : undefined
                     }}
                     onClick={() => !isLocked && selectChapterFromOverview(idx)}
                     disabled={isLocked}
@@ -1238,7 +1242,7 @@ function App() {
               </div>
 
               <Card className="flex-1 pt-0 px-8 pb-8 mb-8 overflow-y-auto max-h-[60vh]">
-                <h2 className="text-xs font-semibold text-primary mb-6 text-center uppercase tracking-widest sticky top-0 bg-card pt-8 pb-2 -mx-8 px-8">
+                <h2 className="text-xs font-semibold mb-6 text-center uppercase tracking-widest sticky top-0 bg-card pt-8 pb-2 -mx-8 px-8" style={{ color: textColor }}>
                   {currentBook?.name} {currentChapter?.chapter}
                 </h2>
                 <div className="font-serif text-lg leading-relaxed space-y-4">

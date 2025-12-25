@@ -165,7 +165,11 @@ export function GroupDetail({ groupId, onBack, currentUserId }: GroupDetailProps
       {/* Quick Actions */}
       <div className="flex flex-wrap gap-3 mb-6">
         {canInvite && (
-          <Button onClick={() => setShowInviteModal(true)}>
+          <Button
+            variant="duolingo-blue"
+            className="h-10 px-4 rounded-xl"
+            onClick={() => setShowInviteModal(true)}
+          >
             <UserPlus className="h-4 w-4" />
             Invite Member
           </Button>
@@ -278,8 +282,8 @@ export function GroupDetail({ groupId, onBack, currentUserId }: GroupDetailProps
                   </div>
                 </div>
                 <Button
-                  variant={group.open_for_challenges ? 'default' : 'outline'}
-                  size="sm"
+                  variant={group.open_for_challenges ? 'duolingo-blue' : 'duolingo-secondary'}
+                  className="h-9 px-4 rounded-xl"
                   onClick={handleToggleOpenForChallenges}
                   disabled={isTogglingOpenForChallenges}
                 >
@@ -309,8 +313,8 @@ export function GroupDetail({ groupId, onBack, currentUserId }: GroupDetailProps
                   </div>
                 </div>
                 <Button
-                  variant={group.members_can_invite ? 'default' : 'outline'}
-                  size="sm"
+                  variant={group.members_can_invite ? 'duolingo-blue' : 'duolingo-secondary'}
+                  className="h-9 px-4 rounded-xl"
                   onClick={handleToggleMembersCanInvite}
                   disabled={isTogglingMembersCanInvite}
                 >
@@ -349,7 +353,11 @@ export function GroupDetail({ groupId, onBack, currentUserId }: GroupDetailProps
                         Permanently delete this group and remove all members
                       </div>
                     </div>
-                    <Button variant="destructive" onClick={() => setShowDeleteConfirm(true)}>
+                    <Button
+                      variant="duolingo-destructive"
+                      className="h-9 px-4 rounded-xl"
+                      onClick={() => setShowDeleteConfirm(true)}
+                    >
                       <Trash2 className="h-4 w-4" />
                       Delete
                     </Button>

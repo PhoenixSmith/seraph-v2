@@ -50,11 +50,17 @@ export function ConfirmModal({
           <DialogDescription>{message}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isLoading}>
+          <Button
+            variant="duolingo-secondary"
+            className="h-10 px-4 rounded-xl"
+            onClick={onClose}
+            disabled={isLoading}
+          >
             Cancel
           </Button>
           <Button
-            variant={confirmDanger ? 'destructive' : 'default'}
+            variant={confirmDanger ? 'duolingo-destructive' : 'duolingo-blue'}
+            className="h-10 px-4 rounded-xl"
             onClick={handleConfirm}
             disabled={isLoading}
           >

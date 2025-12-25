@@ -40,11 +40,15 @@ export function GroupsPage({ currentUserId }: GroupsPageProps) {
       <div className="flex justify-center items-center mb-6 flex-wrap gap-4">
         <div className="flex items-center gap-3">
           <InvitesList />
-          <Button variant="outline" onClick={() => setShowJoinModal(true)}>
+          <Button variant="duolingo-secondary" className="h-10 px-4 rounded-xl" onClick={() => setShowJoinModal(true)}>
             <Link className="h-4 w-4" />
             Join with Code
           </Button>
-          <Button onClick={() => setShowCreateModal(true)}>
+          <Button
+            variant="duolingo-blue"
+            className="h-10 px-4 rounded-xl"
+            onClick={() => setShowCreateModal(true)}
+          >
             <Plus className="h-4 w-4" />
             Create Group
           </Button>
@@ -61,11 +65,15 @@ export function GroupsPage({ currentUserId }: GroupsPageProps) {
             Create a group or join one with an invite code!
           </p>
           <div className="flex flex-wrap justify-center gap-3">
-            <Button variant="outline" onClick={() => setShowJoinModal(true)}>
+            <Button variant="duolingo-secondary" className="h-10 px-4 rounded-xl" onClick={() => setShowJoinModal(true)}>
               <Link className="h-4 w-4" />
               Join with Code
             </Button>
-            <Button onClick={() => setShowCreateModal(true)}>
+            <Button
+              variant="duolingo-blue"
+              className="h-10 px-4 rounded-xl"
+              onClick={() => setShowCreateModal(true)}
+            >
               <Plus className="h-4 w-4" />
               Create Group
             </Button>

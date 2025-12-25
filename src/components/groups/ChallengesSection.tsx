@@ -68,7 +68,11 @@ export function ChallengesSection({ groupId, isLeader }: ChallengesSectionProps)
           <h3 className="font-semibold">Group Challenges</h3>
         </div>
         {isLeader && (
-          <Button size="sm" onClick={() => setShowCreateModal(true)}>
+          <Button
+            variant="duolingo-orange"
+            className="h-9 px-4 rounded-xl"
+            onClick={() => setShowCreateModal(true)}
+          >
             <Plus className="h-4 w-4 mr-1" />
             Challenge
           </Button>

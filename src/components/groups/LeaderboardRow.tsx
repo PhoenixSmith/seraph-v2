@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Crown, Star, Flame, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { UserAvatar } from '@/components/avatar/UserAvatar'
+import { MemberHoverCard } from './MemberHoverCard'
 import type { AvatarConfig } from '@/lib/api'
 
 interface Member {
@@ -54,11 +55,17 @@ export function LeaderboardRow({ member, onRemove, canRemove }: LeaderboardRowPr
         {member.rank <= 3 ? getRankDisplay(member.rank) : member.rank}
       </div>
 
-      <UserAvatar
-        size="sm"
-        editable={false}
-        config={member.avatar_config}
-      />
+      <MemberHoverCard
+        userId={member.user_id}
+        userName={member.name ?? null}
+        avatarConfig={member.avatar_config}
+      >
+        <UserAvatar
+          size="sm"
+          editable={false}
+          config={member.avatar_config}
+        />
+      </MemberHoverCard>
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">

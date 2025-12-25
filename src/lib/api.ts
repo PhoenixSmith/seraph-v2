@@ -546,6 +546,36 @@ export async function getGroupActivityFeed(groupId: string, limit = 50): Promise
   }))
 }
 
+export interface MemberProfileAchievement {
+  id: string
+  name: string
+  icon: string
+  unlocked_at: string
+}
+
+export interface MemberProfile {
+  user_id: string
+  name: string | null
+  avatar_config: AvatarConfig
+  total_xp: number
+  current_streak: number
+  current_tier: string
+  achievements: MemberProfileAchievement[]
+}
+
+export async function getMemberProfile(userId: string): Promise<MemberProfile | null> {
+  const { data, error } = await supabase.rpc('get_member_profile' as 'get_current_user', {
+    p_user_id: userId
+  } as unknown as Record<string, never>)
+  if (error) throw error
+  if (!data) return null
+  const profile = data as unknown as MemberProfile
+  return {
+    ...profile,
+    avatar_config: profile.avatar_config ?? DEFAULT_AVATAR_CONFIG
+  }
+}
+
 export interface GroupStatistics {
   member_count: number
   total_xp: number
