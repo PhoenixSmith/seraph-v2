@@ -429,6 +429,99 @@ export type Database = {
           },
         ]
       }
+      verse_notes: {
+        Row: {
+          id: string
+          user_id: string
+          book: string
+          chapter: number
+          verse: number
+          content: string
+          is_private: boolean
+          group_id: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          book: string
+          chapter: number
+          verse: number
+          content: string
+          is_private?: boolean
+          group_id?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          book?: string
+          chapter?: number
+          verse?: number
+          content?: string
+          is_private?: boolean
+          group_id?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "verse_notes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "verse_notes_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      verse_note_replies: {
+        Row: {
+          id: string
+          note_id: string
+          user_id: string
+          content: string
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          note_id: string
+          user_id: string
+          content: string
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          note_id?: string
+          user_id?: string
+          content?: string
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "verse_note_replies_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "verse_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "verse_note_replies_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -597,6 +690,55 @@ export type Database = {
       }
       update_group: {
         Args: { p_group_id: string; p_name: string; p_description?: string }
+        Returns: Json
+      }
+      create_verse_note: {
+        Args: { p_book: string; p_chapter: number; p_verse: number; p_content: string; p_group_id?: string }
+        Returns: Json
+      }
+      get_chapter_notes: {
+        Args: { p_book: string; p_chapter: number; p_group_ids?: string[] }
+        Returns: {
+          id: string
+          user_id: string
+          user_name: string
+          user_avatar_url: string
+          user_avatar_config: Json
+          verse: number
+          content: string
+          is_private: boolean
+          group_id: string | null
+          group_name: string | null
+          created_at: string
+          reply_count: number
+        }[]
+      }
+      get_note_with_replies: {
+        Args: { p_note_id: string }
+        Returns: Json
+      }
+      add_note_reply: {
+        Args: { p_note_id: string; p_content: string }
+        Returns: Json
+      }
+      update_verse_note: {
+        Args: { p_note_id: string; p_content: string }
+        Returns: Json
+      }
+      delete_verse_note: {
+        Args: { p_note_id: string }
+        Returns: Json
+      }
+      share_note_to_group: {
+        Args: { p_note_id: string; p_group_id: string }
+        Returns: Json
+      }
+      make_note_private: {
+        Args: { p_note_id: string }
+        Returns: Json
+      }
+      delete_note_reply: {
+        Args: { p_reply_id: string }
         Returns: Json
       }
     }

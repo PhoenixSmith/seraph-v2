@@ -21,9 +21,10 @@ interface GroupDetailProps {
   groupId: string
   onBack: () => void
   currentUserId?: string
+  onNavigateToVerse?: (book: string, chapter: number, verse?: number) => void
 }
 
-export function GroupDetail({ groupId, onBack, currentUserId }: GroupDetailProps) {
+export function GroupDetail({ groupId, onBack, currentUserId, onNavigateToVerse }: GroupDetailProps) {
   const { data: group, refresh: refreshGroup } = useRefreshableQuery(
     useCallback(() => api.getGroup(groupId), [groupId])
   )
@@ -252,7 +253,7 @@ export function GroupDetail({ groupId, onBack, currentUserId }: GroupDetailProps
 
         {/* Activity Tab */}
         <TabsContent value="activity">
-          <GroupActivityFeed groupId={groupId} />
+          <GroupActivityFeed groupId={groupId} onNavigateToVerse={onNavigateToVerse} />
         </TabsContent>
 
         {/* Settings Tab (Leader Only) */}

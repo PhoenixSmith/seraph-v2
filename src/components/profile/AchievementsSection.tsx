@@ -15,7 +15,9 @@ import {
   Flame,
   Swords,
   Sparkles,
-  RefreshCw
+  RefreshCw,
+  Coins,
+  Gift
 } from 'lucide-react'
 
 type AchievementCategory = 'all' | 'book_completion' | 'streak' | 'special'
@@ -150,15 +152,42 @@ function AchievementCard({ achievement, bookProgress, currentStreak }: Achieveme
                 {isUnlocked ? achievement.description : hint}
               </p>
             </div>
-            <Badge
-              variant={isUnlocked ? 'default' : 'secondary'}
-              className={cn(
-                'shrink-0 text-xs',
-                isUnlocked && 'bg-amber-500 hover:bg-amber-600'
+            {/* Rewards badges */}
+            <div className="flex flex-col gap-1 items-end shrink-0">
+              <Badge
+                variant={isUnlocked ? 'default' : 'secondary'}
+                className={cn(
+                  'text-xs',
+                  isUnlocked && 'bg-amber-500 hover:bg-amber-600'
+                )}
+              >
+                +{achievement.xp_reward} XP
+              </Badge>
+              {achievement.talent_reward > 0 && (
+                <Badge
+                  variant={isUnlocked ? 'default' : 'secondary'}
+                  className={cn(
+                    'text-xs flex items-center gap-1',
+                    isUnlocked && 'bg-purple-500 hover:bg-purple-600'
+                  )}
+                >
+                  <Coins className="h-3 w-3" />
+                  +{achievement.talent_reward}
+                </Badge>
               )}
-            >
-              +{achievement.xp_reward} XP
-            </Badge>
+              {achievement.linked_item_name && (
+                <Badge
+                  variant={isUnlocked ? 'default' : 'secondary'}
+                  className={cn(
+                    'text-xs flex items-center gap-1',
+                    isUnlocked && 'bg-emerald-500 hover:bg-emerald-600'
+                  )}
+                >
+                  <Gift className="h-3 w-3" />
+                  Item
+                </Badge>
+              )}
+            </div>
           </div>
 
           {/* Progress bar for locked achievements */}

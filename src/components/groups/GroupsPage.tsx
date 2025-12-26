@@ -11,9 +11,10 @@ import { Plus, Users, Link } from 'lucide-react'
 
 interface GroupsPageProps {
   currentUserId?: string
+  onNavigateToVerse?: (book: string, chapter: number, verse?: number) => void
 }
 
-export function GroupsPage({ currentUserId }: GroupsPageProps) {
+export function GroupsPage({ currentUserId, onNavigateToVerse }: GroupsPageProps) {
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showJoinModal, setShowJoinModal] = useState(false)
@@ -31,6 +32,7 @@ export function GroupsPage({ currentUserId }: GroupsPageProps) {
           setSelectedGroupId(null)
         }}
         currentUserId={currentUserId}
+        onNavigateToVerse={onNavigateToVerse}
       />
     )
   }

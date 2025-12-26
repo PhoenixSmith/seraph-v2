@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from 'react'
-import { useSupabaseAuth, useQuery } from '@/hooks/useSupabase'
+import { useSupabaseAuth, useQuery, useRefreshableQuery } from '@/hooks/useSupabase'
 import { useSound } from '@/hooks/useSound'
 import * as api from '@/lib/api'
 import { Auth, UserButton, StreakXPDisplay, User } from './components/Auth'
@@ -8,6 +8,7 @@ import { GroupsPage } from './components/groups'
 import { ProfilePage } from './components/profile'
 import { useRewardModal, RewardRenderer } from './components/rewards'
 import { StorePage } from './components/store'
+import { Verse } from './components/notes'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -113,7 +114,7 @@ interface QuizState {
 
 function App() {
   const { isLoading, isAuthenticated } = useSupabaseAuth()
-  const { play: playSound } = useSound()
+  const { play: playSound, stage: stageSound, fire: fireSound } = useSound()
   const { currentReward, isOpen: isRewardOpen, queueReward, dismissReward } = useRewardModal()
   const [debugMode, setDebugMode] = useState(() => {
     return localStorage.getItem('debugMode') === 'true'
@@ -134,6 +135,18 @@ function App() {
     [isAuthenticated]
   )
 
+  // Fetch user's groups (for notes feature)
+  const { data: myGroups, refresh: refreshMyGroups } = useRefreshableQuery(
+    useCallback(() => isAuthenticated ? api.listMyGroups() : Promise.resolve([]), [isAuthenticated])
+  )
+
+  // Refresh groups when auth state changes
+  useEffect(() => {
+    if (isAuthenticated) {
+      refreshMyGroups()
+    }
+  }, [isAuthenticated, refreshMyGroups])
+
   // Fetch completed chapters for current book (for locking system)
   const [completedChapters, setCompletedChapters] = useState<number[]>([])
 
@@ -142,7 +155,7 @@ function App() {
     const saved = localStorage.getItem('theme')
     return saved || 'system'
   })
-  const [viewMode, setViewMode] = useState<'reading' | 'overview' | 'groups' | 'store'>('reading')
+  const [viewMode, setViewMode] = useState<'reading' | 'overview' | 'groups' | 'store'>('overview')
   const [showProfile, setShowProfile] = useState(false)
 
   const [quizMode, setQuizMode] = useState(false)
@@ -203,6 +216,29 @@ function App() {
     }
   }, [])
 
+  // Measure header logo position for exact splash animation
+  useLayoutEffect(() => {
+    const measurePosition = () => {
+      const el = headerLogoRef.current
+      if (!el) return
+      const rect = el.getBoundingClientRect()
+      const centerX = rect.left + rect.width / 2
+      const centerY = rect.top + rect.height / 2
+      const viewportCenterX = window.innerWidth / 2
+      const viewportCenterY = window.innerHeight / 2
+      setSplashOffset({
+        x: centerX - viewportCenterX,
+        y: centerY - viewportCenterY
+      })
+    }
+    // Measure after a frame to ensure layout is ready
+    requestAnimationFrame(() => {
+      requestAnimationFrame(measurePosition)
+    })
+    window.addEventListener('resize', measurePosition)
+    return () => window.removeEventListener('resize', measurePosition)
+  }, [])
+
   const [lastTrackedVerse, setLastTrackedVerse] = useState<string | null>(null)
   useEffect(() => {
     if (!isAuthenticated) return
@@ -223,6 +259,137 @@ function App() {
       .catch(console.error)
   }, [isAuthenticated, currentBook?.name])
 
+  // Navigate to first incomplete book when Progress tab loads
+  const prevViewModeRef = useRef<string | null>(null)
+  useEffect(() => {
+    const isFirstMount = prevViewModeRef.current === null
+    const wasNotOverview = prevViewModeRef.current !== 'overview'
+    prevViewModeRef.current = viewMode
+
+    // Trigger on first mount (if starting on overview) or when switching TO the progress tab
+    if (viewMode !== 'overview' || !isAuthenticated) return
+    if (!isFirstMount && !wasNotOverview) return
+
+    api.getAllBookProgress().then((progress) => {
+      // Create a map of book name -> completion status
+      const completionMap = new Map(progress.map(p => [p.book, p.is_complete]))
+
+      // Find first incomplete book in Bible order (started but not finished)
+      let targetIndex = books.findIndex((book: { name: string }) => {
+        const isComplete = completionMap.get(book.name)
+        return isComplete === false // started but not complete
+      })
+
+      // If no started-but-incomplete, find first unstarted book
+      if (targetIndex === -1) {
+        targetIndex = books.findIndex((book: { name: string }) => !completionMap.has(book.name))
+      }
+
+      // If all books complete, loop back to Genesis
+      if (targetIndex === -1) {
+        targetIndex = 0
+      }
+
+      if (targetIndex !== position.book) {
+        setPosition({ book: targetIndex, chapter: 0, verse: 0 })
+      }
+    }).catch(console.error)
+  }, [viewMode, isAuthenticated, books])
+
+  // Verse notes state
+  const [chapterNotes, setChapterNotes] = useState<api.VerseNote[]>([])
+  const [isCreatingNote, setIsCreatingNote] = useState(false)
+
+  // Reading progress tracking
+  const verseContainerRef = useRef<HTMLDivElement>(null)
+  const [readingProgress, setReadingProgress] = useState(0)
+
+  // Ref for header logo to calculate exact splash animation target
+  const headerLogoRef = useRef<HTMLHeadingElement>(null)
+  // Initialize with approximate values (will be measured exactly on mount)
+  // Logo is at: 24px padding + ~60px (half of logo width) = ~84px from container left
+  // On wide screens: container left = (100vw - 680px) / 2, so logo center = 50vw - 340px + 84px = 50vw - 256px
+  const [splashOffset, setSplashOffset] = useState(() => ({
+    x: -Math.min(256, window.innerWidth / 2 - 84),
+    y: -(window.innerHeight / 2 - 72)
+  }))
+
+  const handleVerseScroll = useCallback(() => {
+    const container = verseContainerRef.current
+    if (!container) return
+
+    const { scrollTop, scrollHeight, clientHeight } = container
+    const maxScroll = scrollHeight - clientHeight
+    if (maxScroll <= 0) {
+      setReadingProgress(100)
+      return
+    }
+    const progress = Math.min(100, Math.max(0, (scrollTop / maxScroll) * 100))
+    setReadingProgress(progress)
+  }, [])
+
+  // Reset progress when chapter changes
+  useEffect(() => {
+    setReadingProgress(0)
+    // Re-calculate after content loads
+    const timer = setTimeout(handleVerseScroll, 100)
+    return () => clearTimeout(timer)
+  }, [position.book, position.chapter, handleVerseScroll])
+
+  // Fetch notes for current chapter
+  useEffect(() => {
+    if (!isAuthenticated || !currentBook || !currentChapter) {
+      setChapterNotes([])
+      return
+    }
+    const groupIds = myGroups?.map(g => g.id) || []
+    api.getChapterNotes(currentBook.name, currentChapter.chapter, groupIds)
+      .then(setChapterNotes)
+      .catch(console.error)
+  }, [isAuthenticated, currentBook?.name, currentChapter?.chapter, myGroups])
+
+  // Note handlers
+  const handleCreateNote = useCallback(async (verse: number, content: string, groupId?: string) => {
+    if (!currentBook || !currentChapter) return
+    setIsCreatingNote(true)
+    try {
+      // Handle "all-groups" by creating a note for each group
+      if (groupId === 'all-groups' && myGroups && myGroups.length > 0) {
+        await Promise.all(
+          myGroups.map(g => api.createVerseNote(currentBook.name, currentChapter.chapter, verse, content, g.id))
+        )
+      } else {
+        const actualGroupId = groupId === 'all-groups' ? undefined : groupId
+        await api.createVerseNote(currentBook.name, currentChapter.chapter, verse, content, actualGroupId)
+      }
+      // Refresh notes
+      const groupIds = myGroups?.map(g => g.id) || []
+      const notes = await api.getChapterNotes(currentBook.name, currentChapter.chapter, groupIds)
+      setChapterNotes(notes)
+    } catch (err) {
+      console.error('Failed to create note:', err)
+    } finally {
+      setIsCreatingNote(false)
+    }
+  }, [currentBook, currentChapter, myGroups])
+
+  const handleDeleteNote = useCallback(async (noteId: string) => {
+    if (!currentBook || !currentChapter) return
+    try {
+      await api.deleteVerseNote(noteId)
+      // Refresh notes
+      const groupIds = myGroups?.map(g => g.id) || []
+      const notes = await api.getChapterNotes(currentBook.name, currentChapter.chapter, groupIds)
+      setChapterNotes(notes)
+    } catch (err) {
+      console.error('Failed to delete note:', err)
+    }
+  }, [currentBook, currentChapter, myGroups])
+
+  const handleNoteReply = useCallback(async (noteId: string, content: string) => {
+    await api.addNoteReply(noteId, content)
+  }, [])
+
   // Check if a chapter is unlocked (chapter 1 always unlocked, rest require previous chapter completed)
   const isChapterUnlocked = useCallback((chapterNum: number): boolean => {
     if (!isAuthenticated) return true // Allow all in debug mode
@@ -233,6 +400,19 @@ function App() {
   const setBookIndex = (book: number) => setPosition({ book, chapter: 0, verse: 0 })
   const setChapterIndex = (chapter: number) => setPosition(pos => ({ ...pos, chapter, verse: 0 }))
   const setVerseIndex = (verse: number) => setPosition(pos => ({ ...pos, verse }))
+
+  // Navigate to a specific verse from group activity feed
+  const navigateToVerse = useCallback((bookName: string, chapter: number, _verse?: number) => {
+    const bookIndex = books.findIndex((b: { name: string }) => b.name === bookName)
+    if (bookIndex === -1) return
+
+    const book = books[bookIndex]
+    const chapterIndex = book.chapters.findIndex((c: { chapter: number }) => c.chapter === chapter)
+    if (chapterIndex === -1) return
+
+    setPosition({ book: bookIndex, chapter: chapterIndex, verse: 0 })
+    setViewMode('reading')
+  }, [books])
 
   const toggleTheme = () => {
     setTheme(current => {
@@ -374,6 +554,17 @@ function App() {
     setQuizMode(true)
   }, [getChapterQuestions])
 
+  // Stage sound on mousedown - determines correctness and preps the audio
+  const stageAnswer = useCallback((letter: string) => {
+    if (quizState.showResult) return
+    const currentQuestion = quizState.inRetryMode
+      ? quizState.wrongAnswers[quizState.currentIndex]
+      : quizState.questions[quizState.currentIndex]
+    const isCorrect = letter === currentQuestion.correctAnswer
+    stageSound(isCorrect ? 'success' : 'rejected')
+  }, [quizState, stageSound])
+
+  // Fire staged sound and select answer on mouseup
   const selectAnswer = useCallback((letter: string) => {
     if (quizState.showResult) return
     const currentQuestion = quizState.inRetryMode
@@ -381,8 +572,8 @@ function App() {
       : quizState.questions[quizState.currentIndex]
     const isCorrect = letter === currentQuestion.correctAnswer
 
-    // Play sound based on answer correctness
-    playSound(isCorrect ? 'success' : 'rejected')
+    // Fire the pre-staged sound instantly
+    fireSound()
 
     setQuizState(prev => ({
       ...prev,
@@ -395,7 +586,7 @@ function App() {
         ? [...prev.wrongAnswers, currentQuestion]
         : prev.wrongAnswers
     }))
-  }, [quizState, playSound])
+  }, [quizState, fireSound])
 
   const nextQuestion = useCallback(() => {
     const questionList = quizState.inRetryMode ? quizState.wrongAnswers : quizState.questions
@@ -469,6 +660,15 @@ function App() {
     return getPastelColor(input, 0.7, 0.35)
   }, [getPastelColor])
 
+  // Interpolate from red to green based on reading progress
+  const getProgressColor = useCallback((progress: number) => {
+    // Red: hsl(0, 72%, 51%) -> Green: hsl(142, 71%, 45%)
+    const hue = (progress / 100) * 142 // 0 (red) to 142 (green)
+    const saturation = 72 - (progress / 100) * 1 // 72 to 71
+    const lightness = 51 - (progress / 100) * 6 // 51 to 45
+    return `hsl(${hue}, ${saturation}%, ${lightness}%)`
+  }, [])
+
   // Book-specific colors for consistent styling across views
   const bookColor = getPastelColor(currentBook?.name || 'Genesis')
   const textColor = getDarkerColor(currentBook?.name || 'Genesis')
@@ -519,8 +719,11 @@ function App() {
                     name: result.achievement.achievement.name,
                     description: result.achievement.achievement.description,
                     icon: result.achievement.achievement.icon,
-                    xp_reward: result.achievement.achievement.xp_reward
-                  }
+                    xp_reward: result.achievement.achievement.xp_reward,
+                    talent_reward: result.achievement.achievement.talent_reward
+                  },
+                  currentStreak: result.current_streak,
+                  streakIncreased: result.streak_increased
                 })
               } else if (isLastChapter) {
                 // Book completion but achievement already unlocked - just celebrate!
@@ -528,7 +731,19 @@ function App() {
                   type: 'book_completion',
                   book: currentBook.name,
                   chaptersCompleted: currentBook.chapters.length,
-                  xpAwarded: result.xp_awarded
+                  xpAwarded: result.xp_awarded,
+                  currentStreak: result.current_streak,
+                  streakIncreased: result.streak_increased
+                })
+              } else if (result.streak_increased && result.current_streak) {
+                // Regular chapter with streak increase - show celebration modal
+                queueReward({
+                  type: 'book_completion',
+                  book: currentBook.name,
+                  chaptersCompleted: currentChapter.chapter,
+                  xpAwarded: result.xp_awarded,
+                  currentStreak: result.current_streak,
+                  streakIncreased: result.streak_increased
                 })
               } else if (result.achievement?.awarded && result.achievement.achievement) {
                 // Standalone achievement (streak, etc.)
@@ -539,7 +754,8 @@ function App() {
                     description: result.achievement.achievement.description,
                     icon: result.achievement.achievement.icon,
                     category: result.achievement.achievement.key.startsWith('streak_') ? 'streak' : 'special',
-                    xp_reward: result.achievement.achievement.xp_reward
+                    xp_reward: result.achievement.achievement.xp_reward,
+                    talent_reward: result.achievement.achievement.talent_reward
                   }
                 })
               }
@@ -623,7 +839,7 @@ function App() {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 text-center animate-in zoom-in-95">
         <Confetti />
-        <div className="w-24 h-24 rounded-full bg-gradient-to-br from-green-500 to-green-600 text-white flex items-center justify-center mb-8 shadow-lg">
+        <div className="w-24 h-24 rounded-2xl bg-[#58cc02] border-4 border-b-8 border-[#58a700] border-b-[#46a302] text-white flex items-center justify-center mb-8">
           <CheckCircle className="w-12 h-12" />
         </div>
         <h2 className="text-3xl font-bold mb-4">Chapter Complete!</h2>
@@ -631,21 +847,21 @@ function App() {
           You got <strong className="text-foreground">{quizState.correctCount}</strong> out of <strong className="text-foreground">{quizState.totalAnswered}</strong> correct
         </p>
         {nextChapterNum && isAuthenticated && (
-          <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400 mb-4 animate-in slide-in-from-bottom">
+          <div className="flex items-center gap-2 text-sm text-[#58a700] dark:text-[#7ed321] mb-4 animate-in slide-in-from-bottom font-bold">
             <Lock className="w-4 h-4" />
             <span>Chapter {nextChapterNum} unlocked!</span>
           </div>
         )}
-        <div className="flex gap-8 mb-10">
-          <div className="text-center">
-            <span className="block text-4xl font-bold text-primary">
+        <div className="flex gap-4 mb-10">
+          <div className="text-center bg-card rounded-2xl px-6 py-4 border-2 border-b-4 border-[#e5e5e5] dark:border-[#3c3c3c] border-b-[#d0d0d0] dark:border-b-[#2a2a2a]">
+            <span className="block text-4xl font-bold text-[#58cc02]">
               {Math.round((quizState.correctCount / quizState.totalAnswered) * 100)}%
             </span>
-            <span className="text-xs uppercase tracking-wide text-muted-foreground">Accuracy</span>
+            <span className="text-xs uppercase tracking-wide text-muted-foreground font-bold">Accuracy</span>
           </div>
-          <div className="text-center">
-            <span className="block text-4xl font-bold text-primary">{quizState.questions.length}</span>
-            <span className="text-xs uppercase tracking-wide text-muted-foreground">Questions</span>
+          <div className="text-center bg-card rounded-2xl px-6 py-4 border-2 border-b-4 border-[#e5e5e5] dark:border-[#3c3c3c] border-b-[#d0d0d0] dark:border-b-[#2a2a2a]">
+            <span className="block text-4xl font-bold text-[#1cb0f6]">{quizState.questions.length}</span>
+            <span className="text-xs uppercase tracking-wide text-muted-foreground font-bold">Questions</span>
           </div>
         </div>
         <Button variant="duolingo" size="duolingo" onClick={() => exitQuiz(true)} className="min-w-[200px]">
@@ -1010,15 +1226,15 @@ function App() {
       </div>
 
       {quizState.inRetryMode && (
-        <div className="bg-gradient-to-r from-[#1cb0f6]/15 via-[#84d8ff]/15 to-[#1cb0f6]/15 dark:from-[#1cb0f6]/20 dark:via-[#84d8ff]/20 dark:to-[#1cb0f6]/20 text-[#1899d6] dark:text-[#84d8ff] px-5 py-2.5 rounded-2xl text-center font-bold text-sm mb-4 animate-in slide-in-from-top border-2 border-[#84d8ff]/50 dark:border-[#1cb0f6]/50">
+        <div className="bg-[#ddf4ff] dark:bg-[#1cb0f6]/20 text-[#1899d6] dark:text-[#84d8ff] px-5 py-3 rounded-2xl text-center font-bold text-sm mb-4 animate-in slide-in-from-top border-2 border-b-4 border-[#84d8ff] dark:border-[#1899d6] border-b-[#1cb0f6] dark:border-b-[#1477a6]">
           Let's try those again
         </div>
       )}
 
       <div className="flex-1 flex flex-col relative">
         {/* Question card */}
-        <div className="bg-gradient-to-br from-muted/30 to-muted/50 dark:from-muted/20 dark:to-muted/30 rounded-2xl p-6 mb-8 border border-border/50">
-          <p className="text-xl md:text-2xl font-medium leading-relaxed">{currentQuestion?.question}</p>
+        <div className="bg-card rounded-2xl p-6 mb-8 border-2 border-b-4 border-[#e5e5e5] dark:border-[#3c3c3c] border-b-[#d0d0d0] dark:border-b-[#2a2a2a] shadow-sm">
+          <p className="text-base md:text-lg font-medium leading-relaxed">{currentQuestion?.question}</p>
         </div>
 
         {/* Sparkles and XP popup for correct answers */}
@@ -1046,23 +1262,26 @@ function App() {
                   !quizState.showResult && "border-[#84d8ff] dark:border-[#1899d6] border-b-[#1cb0f6] dark:border-b-[#1899d6] hover:bg-[#ddf4ff] dark:hover:bg-[#1cb0f6]/10 hover:border-[#1cb0f6] hover:border-b-[#1899d6] active:border-b-2 active:mt-[2px] active:mb-[-2px] cursor-pointer",
                   // Correct answer - green thicc border
                   isCorrect && "border-[#58cc02] border-b-[#58a700] bg-[#d7ffb8] dark:bg-[#58cc02]/20 animate-correct-pulse",
-                  // Incorrect answer - red thicc border
-                  isIncorrect && "border-red-400 border-b-red-500 bg-red-50 dark:bg-red-500/20 animate-wrong-shake",
+                  // Incorrect answer - red thicc border (Duolingo red)
+                  isIncorrect && "border-[#ff4b4b] border-b-[#ea2b2b] bg-[#ffdfe0] dark:bg-[#ff4b4b]/20 animate-wrong-shake",
                   // Show correct answer when wrong selected
                   isCorrectAnswer && !isSelected && "border-[#58cc02]/60 border-b-[#58a700]/60 bg-[#d7ffb8]/50 dark:bg-[#58cc02]/10",
                   // Fade non-selected wrong answers
                   !isSelected && !isCorrectAnswer && quizState.showResult && "opacity-40"
                 )}
-                onClick={() => selectAnswer(option.letter)}
+                onMouseDown={() => stageAnswer(option.letter)}
+                onMouseUp={() => selectAnswer(option.letter)}
+                onTouchStart={() => stageAnswer(option.letter)}
+                onTouchEnd={() => selectAnswer(option.letter)}
                 disabled={quizState.showResult}
               >
                 <span
                   className={cn(
-                    "w-10 h-10 rounded-xl flex items-center justify-center font-bold text-base flex-shrink-0 transition-all border-2",
-                    isCorrect && "bg-[#58cc02] border-[#58a700] text-white animate-glow-correct",
-                    isIncorrect && "bg-red-500 border-red-600 text-white animate-glow-wrong",
-                    isCorrectAnswer && !isSelected && "bg-[#58cc02]/70 border-[#58a700]/70 text-white",
-                    !isCorrect && !isIncorrect && !isCorrectAnswer && "bg-[#ddf4ff] dark:bg-[#1cb0f6]/20 border-[#84d8ff] dark:border-[#1899d6] text-[#1899d6] dark:text-[#84d8ff]"
+                    "w-10 h-10 rounded-xl flex items-center justify-center font-bold text-base flex-shrink-0 transition-all border-2 border-b-4",
+                    isCorrect && "bg-[#58cc02] border-[#58a700] border-b-[#46a302] text-white animate-glow-correct",
+                    isIncorrect && "bg-[#ff4b4b] border-[#ea2b2b] border-b-[#d41a1a] text-white animate-glow-wrong",
+                    isCorrectAnswer && !isSelected && "bg-[#58cc02]/70 border-[#58a700]/70 border-b-[#46a302]/70 text-white",
+                    !isCorrect && !isIncorrect && !isCorrectAnswer && "bg-[#ddf4ff] dark:bg-[#1cb0f6]/20 border-[#84d8ff] dark:border-[#1899d6] border-b-[#1cb0f6] dark:border-b-[#1477a6] text-[#1899d6] dark:text-[#84d8ff]"
                   )}
                 >
                   {isCorrect ? <Check className="w-5 h-5" /> : isIncorrect ? <X className="w-5 h-5" /> : option.letter}
@@ -1076,15 +1295,17 @@ function App() {
         {quizState.showResult && (
           <div
             className={cn(
-              "flex items-center justify-center gap-3 p-5 rounded-2xl font-bold mt-8 animate-result-pop shadow-lg",
+              "flex items-center justify-center gap-3 p-5 rounded-2xl font-bold mt-8 animate-result-pop border-2 border-b-4",
               quizState.isCorrect
-                ? "bg-gradient-to-r from-green-500/20 via-emerald-500/20 to-teal-500/20 text-green-600 dark:text-green-400 border border-green-500/30 shadow-green-500/10"
-                : "bg-gradient-to-r from-red-500/20 via-rose-500/20 to-pink-500/20 text-red-600 dark:text-red-400 border border-red-500/30 shadow-red-500/10"
+                ? "bg-[#d7ffb8] dark:bg-[#58cc02]/20 text-[#58a700] dark:text-[#7ed321] border-[#58cc02] border-b-[#46a302]"
+                : "bg-[#ffdfe0] dark:bg-[#ff4b4b]/20 text-[#ea2b2b] dark:text-[#ff6b6b] border-[#ff4b4b] border-b-[#d41a1a]"
             )}
           >
             <div className={cn(
-              "w-11 h-11 rounded-full flex items-center justify-center shadow-md",
-              quizState.isCorrect ? "bg-gradient-to-br from-green-400 to-emerald-500" : "bg-gradient-to-br from-red-400 to-rose-500"
+              "w-11 h-11 rounded-xl flex items-center justify-center border-2 border-b-4",
+              quizState.isCorrect
+                ? "bg-[#58cc02] border-[#58a700] border-b-[#46a302]"
+                : "bg-[#ff4b4b] border-[#ea2b2b] border-b-[#d41a1a]"
             )}>
               {quizState.isCorrect ? (
                 <Check className="w-6 h-6 text-white" />
@@ -1153,11 +1374,12 @@ function App() {
         )}
       >
         <div
-          className={cn(
-            "flex items-center gap-2 transition-all duration-500 ease-out",
-            introPhase === 'splash' && "scale-[2.5]",
-            (introPhase === 'animating' || introPhase === 'done') && "scale-100 -translate-y-[calc(50vh-4rem)]"
-          )}
+          className="flex items-center gap-2 transition-all duration-500 ease-out"
+          style={{
+            transform: introPhase === 'splash'
+              ? 'scale(2.5)'
+              : `scale(1) translate(${splashOffset.x}px, ${splashOffset.y}px)`
+          }}
         >
           <h1 className="text-2xl font-semibold tracking-tight">Kayrho</h1>
           <KayrhoLogo size={28} className="text-blue-400" />
@@ -1168,23 +1390,42 @@ function App() {
         quizState.completed ? <QuizComplete /> : <QuizView />
       ) : (
         <>
-          <header className="mb-12 relative">
-            <Button
-              variant="outline"
-              size="icon"
-              className={cn(
-                "absolute top-0 left-0 transition-opacity duration-300",
-                introPhase !== 'done' ? "opacity-0" : "opacity-100"
+          <header className={cn(
+            "mb-12 flex items-center justify-between transition-opacity duration-500",
+            introPhase === 'splash' ? "opacity-0" : "opacity-100"
+          )}>
+            {/* Left side: Logo and title */}
+            <div className="flex items-center gap-3">
+              <h1
+                ref={headerLogoRef}
+                className={cn(
+                  "text-2xl font-semibold tracking-tight inline-flex items-center gap-2",
+                  introPhase !== 'done' && "invisible"
+                )}
+              >
+                Kayrho
+                <KayrhoLogo size={28} className="text-blue-400" />
+              </h1>
+            </div>
+
+            {/* Right side: XP, Talents, Streak, User */}
+            <div className="flex items-center gap-3">
+              {userForComponents && (
+                <div className="hidden sm:flex items-center gap-2">
+                  <Badge variant="skeumorphic" className="flex items-center gap-1.5 px-3 py-1">
+                    <Star className="h-3.5 w-3.5 text-amber-500" fill="currentColor" />
+                    <span>{userForComponents.total_xp ?? 0} XP</span>
+                  </Badge>
+                  <Badge variant="skeumorphic" className="flex items-center gap-1.5 px-3 py-1">
+                    <Coins className="h-3.5 w-3.5 text-amber-500" />
+                    <span>{userForComponents.talents ?? 0}</span>
+                  </Badge>
+                  <Badge variant="skeumorphic" className="flex items-center gap-1.5 px-3 py-1">
+                    <Flame className="h-3.5 w-3.5 text-red-500" fill="currentColor" />
+                    <span>{userForComponents.current_streak ?? 0} day{(userForComponents.current_streak ?? 0) !== 1 ? 's' : ''}</span>
+                  </Badge>
+                </div>
               )}
-              onClick={toggleTheme}
-              aria-label={isDarkMode() ? 'Switch to light mode' : 'Switch to dark mode'}
-            >
-              {isDarkMode() ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            </Button>
-            <div className={cn(
-              "absolute top-0 right-0 transition-opacity duration-300",
-              introPhase !== 'done' ? "opacity-0" : "opacity-100"
-            )}>
               {userForComponents ? (
                 <UserButton user={userForComponents} onProfileClick={() => setShowProfile(true)} />
               ) : debugMode ? (
@@ -1200,48 +1441,20 @@ function App() {
                 </Button>
               ) : null}
             </div>
-            <div className={cn(
-              "flex flex-col items-center gap-3 transition-opacity duration-300",
-              introPhase !== 'done' ? "opacity-0" : "opacity-100"
-            )}>
-              <h1 className={cn(
-                "text-2xl font-semibold tracking-tight inline-flex items-center gap-2",
-                introPhase !== 'done' && "invisible"
-              )}>
-                Kayrho
-                <KayrhoLogo size={28} className="text-blue-400" />
-              </h1>
-              {userForComponents && (
-                <div className="hidden sm:flex items-center gap-4">
-                  <Badge variant="skeumorphic" className="flex items-center gap-1.5 px-3 py-1">
-                    <Star className="h-3.5 w-3.5 text-amber-500" fill="currentColor" />
-                    <span>{userForComponents.total_xp ?? 0} XP</span>
-                  </Badge>
-                  <Badge variant="skeumorphic" className="flex items-center gap-1.5 px-3 py-1">
-                    <Coins className="h-3.5 w-3.5 text-amber-500" />
-                    <span>{userForComponents.talents ?? 0}</span>
-                  </Badge>
-                  <Badge variant="skeumorphic" className="flex items-center gap-1.5 px-3 py-1">
-                    <Flame className="h-3.5 w-3.5 text-red-500" fill="currentColor" />
-                    <span>{userForComponents.current_streak ?? 0} day{(userForComponents.current_streak ?? 0) !== 1 ? 's' : ''}</span>
-                  </Badge>
-                </div>
-              )}
-            </div>
           </header>
 
           <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as typeof viewMode)} className={cn(
-            "mb-6 transition-all duration-300",
-            introPhase !== 'done' ? "opacity-0 translate-y-2" : "opacity-100 translate-y-0"
+            "mb-6 transition-all duration-500",
+            introPhase === 'splash' ? "opacity-0 translate-y-2" : "opacity-100 translate-y-0"
           )}>
             <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="overview" className="flex items-center gap-2">
+                <LayoutGrid className="w-4 h-4" />
+                <span className="hidden sm:inline">Progress</span>
+              </TabsTrigger>
               <TabsTrigger value="reading" className="flex items-center gap-2">
                 <BookOpen className="w-4 h-4" />
                 <span className="hidden sm:inline">Reading</span>
-              </TabsTrigger>
-              <TabsTrigger value="overview" className="flex items-center gap-2">
-                <LayoutGrid className="w-4 h-4" />
-                <span className="hidden sm:inline">Overview</span>
               </TabsTrigger>
               <TabsTrigger value="groups" className="flex items-center gap-2 relative">
                 <Users className="w-4 h-4" />
@@ -1260,8 +1473,8 @@ function App() {
           </Tabs>
 
           <div className={cn(
-            "flex-1 flex flex-col transition-all duration-300 delay-75",
-            introPhase !== 'done' ? "opacity-0 translate-y-2" : "opacity-100 translate-y-0"
+            "flex-1 flex flex-col transition-all duration-500 delay-100",
+            introPhase === 'splash' ? "opacity-0 translate-y-2" : "opacity-100 translate-y-0"
           )}>
           {viewMode === 'store' ? (
             <StorePage
@@ -1274,7 +1487,7 @@ function App() {
               }}
             />
           ) : viewMode === 'groups' ? (
-            <GroupsPage currentUserId={user?.id} />
+            <GroupsPage currentUserId={user?.id} onNavigateToVerse={navigateToVerse} />
           ) : viewMode === 'overview' ? (
             <>
               <div className="flex justify-center mb-6">
@@ -1347,21 +1560,54 @@ function App() {
 
               </div>
 
-              <Card className="flex-1 pt-0 px-8 pb-8 mb-8 overflow-y-auto max-h-[60vh]">
-                <h2 className="text-xs font-semibold mb-6 text-center uppercase tracking-widest sticky top-0 bg-card pt-8 pb-2 -mx-8 px-8" style={{ color: textColor }}>
-                  {currentBook?.name} {currentChapter?.chapter}
-                </h2>
-                <div className="font-serif text-lg leading-relaxed space-y-4">
-                  {verses.map((verse: { verse: number; text: string }, idx: number) => (
-                    <p key={idx}>
-                      <span className="text-xs font-sans font-semibold align-super mr-1" style={{ color: textColor }}>
-                        {verse.verse}
-                      </span>
-                      {verse.text}
-                    </p>
-                  ))}
+              <div className="relative mb-8">
+                <Card
+                  ref={verseContainerRef}
+                  onScroll={handleVerseScroll}
+                  className="flex-1 pt-0 px-8 pb-8 overflow-y-auto max-h-[60vh]"
+                >
+                  <h2 className="text-xs font-semibold mb-6 text-center uppercase tracking-widest sticky top-0 z-10 bg-card pt-8 pb-2 -mx-8 px-8" style={{ color: textColor }}>
+                    {currentBook?.name} {currentChapter?.chapter}
+                  </h2>
+                  <div className="font-serif text-lg leading-relaxed space-y-4">
+                    {verses.map((verse: { verse: number; text: string }, idx: number) => (
+                      isAuthenticated && user ? (
+                        <Verse
+                          key={idx}
+                          verseNumber={verse.verse}
+                          text={verse.text}
+                          textColor={textColor}
+                          notes={chapterNotes}
+                          groups={(myGroups || []).map(g => ({ id: g.id, name: g.name }))}
+                          currentUserId={user.id}
+                          onCreateNote={handleCreateNote}
+                          onDeleteNote={handleDeleteNote}
+                          onReply={handleNoteReply}
+                          isCreating={isCreatingNote}
+                        />
+                      ) : (
+                        <p key={idx}>
+                          <span className="text-xs font-sans font-semibold align-super mr-1" style={{ color: textColor }}>
+                            {verse.verse}
+                          </span>
+                          {verse.text}
+                        </p>
+                      )
+                    ))}
+                  </div>
+                </Card>
+                {/* Reading progress bar - red to green */}
+                <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-muted/30 rounded-b-lg overflow-hidden">
+                  <div
+                    className="h-full transition-all duration-150 ease-out rounded-br-lg"
+                    style={{
+                      width: `${readingProgress}%`,
+                      backgroundColor: getProgressColor(readingProgress),
+                      borderBottomLeftRadius: readingProgress === 100 ? '0.5rem' : 0,
+                    }}
+                  />
                 </div>
-              </Card>
+              </div>
 
               <div className="flex gap-2 justify-center mb-8">
                 <Button variant="outline" size="lg" className="min-w-[160px] border-b-4 hover:-translate-y-0.5 active:border-b-2 active:translate-y-0 transition-all duration-100" onClick={goToPrevChapter}>

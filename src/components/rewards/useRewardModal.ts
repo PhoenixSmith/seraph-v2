@@ -13,8 +13,11 @@ export interface BookCompletionReward {
     description: string
     icon: string
     xp_reward: number
+    talent_reward?: number
     unlocked_item?: UnlockedItem | null
   }
+  currentStreak?: number
+  streakIncreased?: boolean
 }
 
 export interface AchievementReward {
@@ -139,6 +142,7 @@ export function parseChapterCompletionReward(response: {
       description: string
       icon: string
       xp_reward: number
+      talent_reward?: number
     }
     unlocked_item?: UnlockedItem | null
   }
@@ -163,6 +167,7 @@ export function parseChapterCompletionReward(response: {
         description: response.achievement.achievement.description,
         icon: response.achievement.achievement.icon,
         xp_reward: response.achievement.achievement.xp_reward,
+        talent_reward: response.achievement.achievement.talent_reward,
         unlocked_item: response.achievement.unlocked_item
       }
     }
@@ -177,7 +182,8 @@ export function parseChapterCompletionReward(response: {
         description: response.achievement.achievement.description,
         icon: response.achievement.achievement.icon,
         category: 'special' as const, // Default, can be enhanced based on key
-        xp_reward: response.achievement.achievement.xp_reward
+        xp_reward: response.achievement.achievement.xp_reward,
+        talent_reward: response.achievement.achievement.talent_reward
       },
       unlockedItem: response.achievement.unlocked_item,
       totalXP: response.total_xp

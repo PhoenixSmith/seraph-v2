@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { Coins } from 'lucide-react'
 
 interface RewardModalProps {
   open: boolean
@@ -75,6 +76,19 @@ export const XPBurst = ({ xp, className }: { xp: number; className?: string }) =
   )}>
     <span className="text-2xl">+{xp}</span>
     <span className="text-lg">XP</span>
+  </div>
+)
+
+// Talent burst animation
+export const TalentBurst = ({ talents, className }: { talents: number; className?: string }) => (
+  <div className={cn(
+    'flex items-center gap-1 text-amber-600 dark:text-amber-400 font-bold animate-reward-xp-burst',
+    className
+  )}
+  style={{ animationDelay: '0.15s' }}
+  >
+    <Coins className="w-5 h-5" />
+    <span className="text-2xl">+{talents}</span>
   </div>
 )
 

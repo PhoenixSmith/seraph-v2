@@ -1,4 +1,4 @@
-import { RewardModal, XPBurst } from './RewardModal'
+import { RewardModal, XPBurst, TalentBurst } from './RewardModal'
 import { Trophy, Flame, Target, Zap, Medal, Award, Star, Sparkles } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
@@ -79,6 +79,7 @@ export interface Achievement {
   icon: string
   category: 'book_completion' | 'streak' | 'xp_milestone' | 'special' | 'challenge'
   xp_reward: number
+  talent_reward?: number
 }
 
 interface AchievementUnlockRewardProps {
@@ -187,13 +188,18 @@ export function AchievementUnlockReward({
           </p>
         </div>
 
-        {/* XP reward section */}
+        {/* XP and Talents reward section */}
         <div className={cn(
           'flex flex-col items-center gap-2 py-4 px-8 rounded-xl w-full',
           config.bgGradientLight,
           config.bgGradientDark
         )}>
-          <XPBurst xp={achievement.xp_reward} className="text-4xl" />
+          <div className="flex items-center gap-4">
+            <XPBurst xp={achievement.xp_reward} className="text-4xl" />
+            {achievement.talent_reward && achievement.talent_reward > 0 && (
+              <TalentBurst talents={achievement.talent_reward} className="text-4xl" />
+            )}
+          </div>
           {totalXP && (
             <span className="text-sm text-slate-600 dark:text-slate-400">
               Total XP: <span className="text-amber-500 dark:text-amber-400 font-semibold">{totalXP.toLocaleString()}</span>

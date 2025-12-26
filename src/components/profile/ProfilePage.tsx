@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery } from '@/hooks/useSupabase'
 import * as api from '@/lib/api'
 import { ActivityHeatmap } from './ActivityHeatmap'
@@ -18,7 +18,9 @@ import {
   TrendingUp,
   ArrowLeft,
   Share2,
-  ScrollText
+  ScrollText,
+  Sun,
+  Moon
 } from 'lucide-react'
 
 interface ProfilePageProps {
@@ -57,6 +59,50 @@ export function ProfilePage({ user, onBack }: ProfilePageProps) {
   const [avatarConfig, setAvatarConfig] = useState<AvatarConfig>(user.avatar_config ?? DEFAULT_AVATAR_CONFIG)
   const stats = useQuery(() => api.getProfileStats(), [])
   const achievements = useQuery(() => api.getUserAchievements(), []) // Used for ShareModal
+
+  // Theme state
+  const [theme, setTheme] = useState(() => {
+    const saved = localStorage.getItem('theme')
+    return saved || 'system'
+  })
+
+  useEffect(() => {
+    const root = document.documentElement
+    const applyTheme = (isDark: boolean) => {
+      if (isDark) {
+        root.classList.add('dark')
+      } else {
+        root.classList.remove('dark')
+      }
+    }
+
+    if (theme === 'system') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+      applyTheme(mediaQuery.matches)
+      const handleChange = (e: MediaQueryListEvent) => applyTheme(e.matches)
+      mediaQuery.addEventListener('change', handleChange)
+      localStorage.setItem('theme', theme)
+      return () => mediaQuery.removeEventListener('change', handleChange)
+    } else {
+      applyTheme(theme === 'dark')
+      localStorage.setItem('theme', theme)
+    }
+  }, [theme])
+
+  const toggleTheme = () => {
+    setTheme(current => {
+      if (current === 'light') return 'dark'
+      if (current === 'dark') return 'light'
+      const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+      return isDark ? 'light' : 'dark'
+    })
+  }
+
+  const isDarkMode = () => {
+    if (theme === 'dark') return true
+    if (theme === 'light') return false
+    return window.matchMedia('(prefers-color-scheme: dark)').matches
+  }
 
   const handleAvatarChange = async (newConfig: AvatarConfig) => {
     setAvatarConfig(newConfig)
@@ -193,6 +239,27 @@ export function ProfilePage({ user, onBack }: ProfilePageProps) {
           achievements={achievements ?? []}
         />
       )}
+
+      {/* Dark Mode Toggle */}
+      <div className="pt-4 border-t">
+        <Button
+          variant="outline"
+          className="w-full"
+          onClick={toggleTheme}
+        >
+          {isDarkMode() ? (
+            <>
+              <Sun className="h-4 w-4 mr-2" />
+              Switch to Light Mode
+            </>
+          ) : (
+            <>
+              <Moon className="h-4 w-4 mr-2" />
+              Switch to Dark Mode
+            </>
+          )}
+        </Button>
+      </div>
     </div>
   )
 }

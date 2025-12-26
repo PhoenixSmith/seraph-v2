@@ -1,5 +1,6 @@
-import { RewardModal, XPBurst } from './RewardModal'
-import { Book, Crown, Star, Sparkles } from 'lucide-react'
+import { RewardModal, XPBurst, TalentBurst } from './RewardModal'
+import { Coins } from 'lucide-react'
+import { Book, Crown, Star, Sparkles, Flame } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { getItemById, getItemImagePath } from '@/config/avatarItems'
@@ -105,8 +106,11 @@ interface BookCompletionRewardProps {
     description: string
     icon: string
     xp_reward: number
+    talent_reward?: number
     unlocked_item?: UnlockedItem | null
   }
+  currentStreak?: number
+  streakIncreased?: boolean
   onComplete?: () => void
 }
 
@@ -118,6 +122,8 @@ export function BookCompletionReward({
   xpAwarded,
   totalXP,
   achievement,
+  currentStreak,
+  streakIncreased,
   onComplete
 }: BookCompletionRewardProps) {
   const bookIcon = BOOK_ICONS[book] || '📖'
@@ -185,6 +191,17 @@ export function BookCompletionReward({
           </div>
         )}
 
+        {/* Streak increase notification */}
+        {streakIncreased && currentStreak && currentStreak > 0 && (
+          <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-100 to-red-100 dark:from-orange-900/40 dark:to-red-900/40 rounded-full border border-orange-300/50 dark:border-orange-700/50 animate-reward-achievement-slide">
+            <Flame className="w-5 h-5 text-orange-500 animate-pulse" />
+            <span className="text-sm font-semibold text-orange-700 dark:text-orange-300">
+              {currentStreak} day streak!
+            </span>
+            <Flame className="w-5 h-5 text-orange-500 animate-pulse" />
+          </div>
+        )}
+
         {/* Achievement unlock (if earned) */}
         {achievement && (
           <div className="w-full animate-reward-achievement-slide space-y-3">
@@ -199,9 +216,17 @@ export function BookCompletionReward({
                   <h4 className="font-bold text-slate-900 dark:text-white">{achievement.name}</h4>
                   <p className="text-sm text-slate-600 dark:text-slate-400">{achievement.description}</p>
                 </div>
-                <Badge className="bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/30">
-                  +{achievement.xp_reward} XP
-                </Badge>
+                <div className="flex flex-col gap-1">
+                  <Badge className="bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/30">
+                    +{achievement.xp_reward} XP
+                  </Badge>
+                  {achievement.talent_reward && achievement.talent_reward > 0 && (
+                    <Badge className="bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/30 flex items-center gap-1">
+                      <Coins className="w-3 h-3" />
+                      +{achievement.talent_reward}
+                    </Badge>
+                  )}
+                </div>
               </div>
             </div>
 

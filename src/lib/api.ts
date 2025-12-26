@@ -75,6 +75,7 @@ export interface AchievementUnlock {
   description: string
   icon: string
   xp_reward: number
+  talent_reward?: number
   unlocked_item?: UnlockedItem | null
 }
 
@@ -88,8 +89,16 @@ export interface CompleteChapterResult {
     awarded: boolean
     reason?: string
     achievement?: AchievementUnlock
+    talents_awarded?: number
     unlocked_item?: UnlockedItem | null
   }
+  current_streak?: number
+  streak_increased?: boolean
+  streak_achievements?: {
+    checked_streak: number
+    newly_awarded: AchievementUnlock[]
+    talents_awarded: number
+  } | null
 }
 
 export async function completeChapter(book: string, chapter: number): Promise<CompleteChapterResult> {
@@ -187,12 +196,7 @@ export async function getRecentCompletions(limit = 10): Promise<{
 export interface VerseReadResult {
   xp_awarded: number
   total_xp: number
-  current_streak: number
-  streak_updated: boolean
-  streak_achievements?: {
-    checked_streak: number
-    newly_awarded: AchievementUnlock[]
-  } | null
+  verses_read: number
 }
 
 export async function recordVerseRead(): Promise<VerseReadResult> {
@@ -681,6 +685,11 @@ export interface Achievement {
   icon: string
   category: string
   xp_reward: number
+  talent_reward: number
+  linked_item_key: string | null
+  linked_item_name: string | null
+  linked_item_category: string | null
+  linked_item_rarity: string | null
   unlocked: boolean
   unlocked_at: string | null
 }
@@ -688,10 +697,19 @@ export interface Achievement {
 export async function getAllAchievements(): Promise<Achievement[]> {
   const { data, error } = await supabase
     .from('achievements')
-    .select('id, key, name, description, icon, category, xp_reward')
+    .select('id, key, name, description, icon, category, xp_reward, talent_reward')
 
   if (error) throw error
-  return (data ?? []).map(a => ({ ...a, unlocked: false, unlocked_at: null }))
+  return (data ?? []).map(a => ({
+    ...a,
+    talent_reward: a.talent_reward ?? 0,
+    linked_item_key: null,
+    linked_item_name: null,
+    linked_item_category: null,
+    linked_item_rarity: null,
+    unlocked: false,
+    unlocked_at: null
+  }))
 }
 
 export async function getAchievementsWithStatus(): Promise<Achievement[]> {
@@ -771,10 +789,12 @@ export interface CheckMiscAchievementsResult {
   streak: {
     checked_streak: number
     newly_awarded: AchievementUnlock[]
+    talents_awarded: number
   }
   challenges: {
     total_wins: number
     newly_awarded: AchievementUnlock[]
+    talents_awarded: number
   }
 }
 
@@ -1024,4 +1044,142 @@ export async function getUserAvatarItems(): Promise<UserAvatarItem[]> {
   const { data, error } = await supabase.rpc('get_user_avatar_items')
   if (error) throw error
   return (data ?? []) as UserAvatarItem[]
+}
+
+// ============================================================================
+// VERSE NOTES FUNCTIONS
+// ============================================================================
+
+export interface VerseNote {
+  id: string
+  user_id: string
+  user_name: string
+  user_avatar_url: string | null
+  user_avatar_config: AvatarConfig | null
+  verse: number
+  content: string
+  is_private: boolean
+  group_id: string | null
+  group_name: string | null
+  created_at: string
+  reply_count: number
+}
+
+export interface NoteReply {
+  id: string
+  user_id: string
+  user_name: string
+  user_avatar_url: string | null
+  user_avatar_config: AvatarConfig | null
+  content: string
+  created_at: string
+}
+
+export interface NoteWithReplies extends Omit<VerseNote, 'reply_count'> {
+  book: string
+  chapter: number
+  replies: NoteReply[]
+}
+
+export interface CreateNoteResult {
+  success: boolean
+  message?: string
+  note_id?: string
+}
+
+export interface NoteActionResult {
+  success: boolean
+  message?: string
+  reply_id?: string
+}
+
+export async function createVerseNote(
+  book: string,
+  chapter: number,
+  verse: number,
+  content: string,
+  groupId?: string
+): Promise<CreateNoteResult> {
+  const { data, error } = await supabase.rpc('create_verse_note' as 'get_current_user', {
+    p_book: book,
+    p_chapter: chapter,
+    p_verse: verse,
+    p_content: content,
+    p_group_id: groupId
+  } as unknown as Record<string, never>)
+  if (error) throw error
+  return data as unknown as CreateNoteResult
+}
+
+export async function getChapterNotes(
+  book: string,
+  chapter: number,
+  groupIds: string[] = []
+): Promise<VerseNote[]> {
+  const { data, error } = await supabase.rpc('get_chapter_notes' as 'get_current_user', {
+    p_book: book,
+    p_chapter: chapter,
+    p_group_ids: groupIds
+  } as unknown as Record<string, never>)
+  if (error) throw error
+  return (data ?? []) as unknown as VerseNote[]
+}
+
+export async function getNoteWithReplies(noteId: string): Promise<NoteWithReplies | null> {
+  const { data, error } = await supabase.rpc('get_note_with_replies' as 'get_current_user', {
+    p_note_id: noteId
+  } as unknown as Record<string, never>)
+  if (error) throw error
+  return data as unknown as NoteWithReplies | null
+}
+
+export async function addNoteReply(noteId: string, content: string): Promise<NoteActionResult> {
+  const { data, error } = await supabase.rpc('add_note_reply' as 'get_current_user', {
+    p_note_id: noteId,
+    p_content: content
+  } as unknown as Record<string, never>)
+  if (error) throw error
+  return data as unknown as NoteActionResult
+}
+
+export async function updateVerseNote(noteId: string, content: string): Promise<NoteActionResult> {
+  const { data, error } = await supabase.rpc('update_verse_note' as 'get_current_user', {
+    p_note_id: noteId,
+    p_content: content
+  } as unknown as Record<string, never>)
+  if (error) throw error
+  return data as unknown as NoteActionResult
+}
+
+export async function deleteVerseNote(noteId: string): Promise<NoteActionResult> {
+  const { data, error } = await supabase.rpc('delete_verse_note' as 'get_current_user', {
+    p_note_id: noteId
+  } as unknown as Record<string, never>)
+  if (error) throw error
+  return data as unknown as NoteActionResult
+}
+
+export async function shareNoteToGroup(noteId: string, groupId: string): Promise<NoteActionResult> {
+  const { data, error } = await supabase.rpc('share_note_to_group' as 'get_current_user', {
+    p_note_id: noteId,
+    p_group_id: groupId
+  } as unknown as Record<string, never>)
+  if (error) throw error
+  return data as unknown as NoteActionResult
+}
+
+export async function makeNotePrivate(noteId: string): Promise<NoteActionResult> {
+  const { data, error } = await supabase.rpc('make_note_private' as 'get_current_user', {
+    p_note_id: noteId
+  } as unknown as Record<string, never>)
+  if (error) throw error
+  return data as unknown as NoteActionResult
+}
+
+export async function deleteNoteReply(replyId: string): Promise<NoteActionResult> {
+  const { data, error } = await supabase.rpc('delete_note_reply' as 'get_current_user', {
+    p_reply_id: replyId
+  } as unknown as Record<string, never>)
+  if (error) throw error
+  return data as unknown as NoteActionResult
 }

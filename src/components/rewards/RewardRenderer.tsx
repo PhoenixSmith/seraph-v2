@@ -27,6 +27,8 @@ export function RewardRenderer({
         xpAwarded={reward.xpAwarded}
         totalXP={reward.totalXP}
         achievement={reward.achievement}
+        currentStreak={reward.currentStreak}
+        streakIncreased={reward.streakIncreased}
         onComplete={onComplete}
       />
     )
