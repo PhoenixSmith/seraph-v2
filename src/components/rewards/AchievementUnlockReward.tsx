@@ -1,7 +1,9 @@
 import { RewardModal, XPBurst } from './RewardModal'
-import { Trophy, Flame, Target, Zap, Medal, Award, Star } from 'lucide-react'
+import { Trophy, Flame, Target, Zap, Medal, Award, Star, Sparkles } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
+import { getItemById, getItemImagePath } from '@/config/avatarItems'
+import type { UnlockedItem } from '@/lib/api'
 
 // Achievement category configurations
 const CATEGORY_CONFIG: Record<string, {
@@ -83,20 +85,35 @@ interface AchievementUnlockRewardProps {
   open: boolean
   onClose: () => void
   achievement: Achievement
+  unlockedItem?: UnlockedItem | null
   totalXP?: number
   onComplete?: () => void
+}
+
+// Rarity colors for item display
+const ITEM_RARITY_CONFIG: Record<string, { border: string; bg: string; text: string }> = {
+  common: { border: 'border-slate-400', bg: 'bg-slate-100 dark:bg-slate-800', text: 'text-slate-600 dark:text-slate-400' },
+  rare: { border: 'border-blue-400', bg: 'bg-blue-50 dark:bg-blue-900/30', text: 'text-blue-600 dark:text-blue-400' },
+  epic: { border: 'border-purple-400', bg: 'bg-purple-50 dark:bg-purple-900/30', text: 'text-purple-600 dark:text-purple-400' },
+  legendary: { border: 'border-amber-400', bg: 'bg-amber-50 dark:bg-amber-900/30', text: 'text-amber-600 dark:text-amber-400' },
 }
 
 export function AchievementUnlockReward({
   open,
   onClose,
   achievement,
+  unlockedItem,
   totalXP,
   onComplete
 }: AchievementUnlockRewardProps) {
   const config = CATEGORY_CONFIG[achievement.category] || CATEGORY_CONFIG.special
   const rarity = getRarity(achievement.xp_reward)
   const CategoryIcon = config.Icon
+
+  // Get item image from config if we have an unlocked item
+  const itemDef = unlockedItem ? getItemById(unlockedItem.item_key) : null
+  const itemImagePath = itemDef ? getItemImagePath(itemDef) : null
+  const itemRarityConfig = unlockedItem ? ITEM_RARITY_CONFIG[unlockedItem.rarity] || ITEM_RARITY_CONFIG.common : null
 
   return (
     <RewardModal
@@ -183,6 +200,64 @@ export function AchievementUnlockReward({
             </span>
           )}
         </div>
+
+        {/* Unlocked item section */}
+        {unlockedItem && itemRarityConfig && (
+          <div className="w-full animate-reward-achievement-slide">
+            <div className={cn(
+              'flex items-center gap-4 p-4 rounded-xl border-2',
+              itemRarityConfig.border,
+              itemRarityConfig.bg
+            )}>
+              {/* Item image */}
+              <div className="relative flex-shrink-0">
+                <div className={cn(
+                  'w-16 h-16 rounded-lg border-2 overflow-hidden bg-white dark:bg-slate-900 flex items-center justify-center',
+                  itemRarityConfig.border
+                )}>
+                  {itemImagePath ? (
+                    <img
+                      src={itemImagePath}
+                      alt={unlockedItem.name}
+                      className="w-14 h-14 object-contain"
+                    />
+                  ) : (
+                    <Sparkles className={cn('w-8 h-8', itemRarityConfig.text)} />
+                  )}
+                </div>
+                {/* Sparkle decoration */}
+                <Sparkles className={cn(
+                  'absolute -top-1 -right-1 w-4 h-4 animate-reward-icon-pulse',
+                  itemRarityConfig.text
+                )} />
+              </div>
+
+              {/* Item info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Item Unlocked!
+                  </span>
+                </div>
+                <h4 className="font-bold text-slate-900 dark:text-white truncate">
+                  {unlockedItem.name}
+                </h4>
+                <div className="flex items-center gap-2">
+                  <Badge className={cn(
+                    'text-[10px] px-2 py-0 border-0 uppercase tracking-wider',
+                    itemRarityConfig.text,
+                    'bg-white/50 dark:bg-slate-800/50'
+                  )}>
+                    {unlockedItem.rarity}
+                  </Badge>
+                  <span className="text-xs text-slate-500 dark:text-slate-400 capitalize">
+                    {unlockedItem.category}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Progress indicator for collection */}
         <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-500">

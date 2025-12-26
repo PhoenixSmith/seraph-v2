@@ -7,6 +7,7 @@ import { getAvatarLayers, DEFAULT_AVATAR_CONFIG } from '@/components/avatar'
 import { GroupsPage } from './components/groups'
 import { ProfilePage } from './components/profile'
 import { useRewardModal, RewardRenderer } from './components/rewards'
+import { StorePage } from './components/store'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -19,8 +20,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Sun, Moon, BookOpen, LayoutGrid, Users, X, Check, ArrowRight, ChevronLeft, ChevronRight, Star, CheckCircle, Lock, Flame } from 'lucide-react'
-import { ScrolilyLogo } from './components/ScrolilyLogo'
+import { Sun, Moon, BookOpen, LayoutGrid, Users, X, Check, ArrowRight, ChevronLeft, ChevronRight, Star, CheckCircle, Lock, Flame, ShoppingBag, Sparkles, Coins } from 'lucide-react'
+import { KayrhoLogo } from './components/KayrhoLogo'
 import { cn } from '@/lib/utils'
 import bibleData from '../BSB.json'
 import questionsData from '../seraph-progress.json'
@@ -141,7 +142,7 @@ function App() {
     const saved = localStorage.getItem('theme')
     return saved || 'system'
   })
-  const [viewMode, setViewMode] = useState<'reading' | 'overview' | 'groups'>('reading')
+  const [viewMode, setViewMode] = useState<'reading' | 'overview' | 'groups' | 'store'>('reading')
   const [showProfile, setShowProfile] = useState(false)
 
   const [quizMode, setQuizMode] = useState(false)
@@ -1155,8 +1156,8 @@ function App() {
               introPhase === 'animating' && "scale-100 -translate-y-[calc(50vh-4rem)]"
             )}
           >
-            <h1 className="text-2xl font-semibold tracking-tight">Scrolily</h1>
-            <ScrolilyLogo size={28} className="text-blue-400" />
+            <h1 className="text-2xl font-semibold tracking-tight">Kayrho</h1>
+            <KayrhoLogo size={28} className="text-blue-400" />
           </div>
         </div>
       )}
@@ -1198,27 +1199,31 @@ function App() {
               ) : null}
             </div>
             <div className={cn(
-              "flex items-center justify-center gap-6 transition-opacity duration-300",
+              "flex flex-col items-center gap-3 transition-opacity duration-300",
               introPhase !== 'done' ? "opacity-0" : "opacity-100"
             )}>
-              {userForComponents && (
-                <Badge variant="skeumorphic" className="hidden sm:flex items-center gap-1.5 px-3 py-1">
-                  <Star className="h-3.5 w-3.5 text-amber-500" fill="currentColor" />
-                  <span>{userForComponents.total_xp ?? 0} XP</span>
-                </Badge>
-              )}
               <h1 className={cn(
                 "text-2xl font-semibold tracking-tight inline-flex items-center gap-2",
                 introPhase !== 'done' && "invisible"
               )}>
-                Scrolily
-                <ScrolilyLogo size={28} className="text-blue-400" />
+                Kayrho
+                <KayrhoLogo size={28} className="text-blue-400" />
               </h1>
               {userForComponents && (
-                <Badge variant="skeumorphic" className="hidden sm:flex items-center gap-1.5 px-3 py-1">
-                  <Flame className="h-3.5 w-3.5 text-red-500" fill="currentColor" />
-                  <span>{userForComponents.current_streak ?? 0} day{(userForComponents.current_streak ?? 0) !== 1 ? 's' : ''}</span>
-                </Badge>
+                <div className="hidden sm:flex items-center gap-4">
+                  <Badge variant="skeumorphic" className="flex items-center gap-1.5 px-3 py-1">
+                    <Star className="h-3.5 w-3.5 text-amber-500" fill="currentColor" />
+                    <span>{userForComponents.total_xp ?? 0} XP</span>
+                  </Badge>
+                  <Badge variant="skeumorphic" className="flex items-center gap-1.5 px-3 py-1">
+                    <Coins className="h-3.5 w-3.5 text-amber-500" />
+                    <span>{userForComponents.talents ?? 0}</span>
+                  </Badge>
+                  <Badge variant="skeumorphic" className="flex items-center gap-1.5 px-3 py-1">
+                    <Flame className="h-3.5 w-3.5 text-red-500" fill="currentColor" />
+                    <span>{userForComponents.current_streak ?? 0} day{(userForComponents.current_streak ?? 0) !== 1 ? 's' : ''}</span>
+                  </Badge>
+                </div>
               )}
             </div>
           </header>
@@ -1227,7 +1232,7 @@ function App() {
             "mb-6 transition-all duration-300",
             introPhase !== 'done' ? "opacity-0 translate-y-2" : "opacity-100 translate-y-0"
           )}>
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="reading" className="flex items-center gap-2">
                 <BookOpen className="w-4 h-4" />
                 <span className="hidden sm:inline">Reading</span>
@@ -1245,6 +1250,10 @@ function App() {
                   </Badge>
                 )}
               </TabsTrigger>
+              <TabsTrigger value="store" className="flex items-center gap-2">
+                <ShoppingBag className="w-4 h-4" />
+                <span className="hidden sm:inline">Store</span>
+              </TabsTrigger>
             </TabsList>
           </Tabs>
 
@@ -1252,7 +1261,17 @@ function App() {
             "flex-1 flex flex-col transition-all duration-300 delay-75",
             introPhase !== 'done' ? "opacity-0 translate-y-2" : "opacity-100 translate-y-0"
           )}>
-          {viewMode === 'groups' ? (
+          {viewMode === 'store' ? (
+            <StorePage
+              userTalents={userForComponents.talents ?? 0}
+              onTalentsChange={(newTalents) => {
+                // Update local user state with new talents
+                if (user) {
+                  refetchUser()
+                }
+              }}
+            />
+          ) : viewMode === 'groups' ? (
             <GroupsPage currentUserId={user?.id} />
           ) : viewMode === 'overview' ? (
             <>

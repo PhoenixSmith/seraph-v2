@@ -17,7 +17,8 @@ import {
   Target,
   TrendingUp,
   ArrowLeft,
-  Share2
+  Share2,
+  ScrollText
 } from 'lucide-react'
 
 interface ProfilePageProps {
@@ -143,6 +144,11 @@ export function ProfilePage({ user, onBack }: ProfilePageProps) {
       {/* Quick Stats Grid */}
       <div className="grid grid-cols-2 gap-4">
         <StatCard
+          icon={<ScrollText className="h-5 w-5 text-violet-500" />}
+          label="Verses Read"
+          value={stats?.verses_read ?? 0}
+        />
+        <StatCard
           icon={<Star className="h-5 w-5 text-amber-500" />}
           label="Total XP"
           value={stats?.total_xp ?? 0}
@@ -151,13 +157,13 @@ export function ProfilePage({ user, onBack }: ProfilePageProps) {
           icon={<Flame className="h-5 w-5 text-red-500" />}
           label="Current Streak"
           value={stats?.current_streak ?? 0}
-          subtext="days"
+          subtext="Days"
         />
         <StatCard
           icon={<TrendingUp className="h-5 w-5 text-green-500" />}
           label="Longest Streak"
           value={stats?.longest_streak ?? 0}
-          subtext="days"
+          subtext="Days"
         />
         <StatCard
           icon={<BookOpen className="h-5 w-5 text-blue-500" />}

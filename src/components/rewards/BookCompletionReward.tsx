@@ -1,6 +1,9 @@
 import { RewardModal, XPBurst } from './RewardModal'
 import { Book, Crown, Star, Sparkles } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
+import { getItemById, getItemImagePath } from '@/config/avatarItems'
+import type { UnlockedItem } from '@/lib/api'
 
 // Book icons/emojis for each book of the Bible
 const BOOK_ICONS: Record<string, string> = {
@@ -82,6 +85,14 @@ const COMPLETION_TITLES = [
   'Blessed Completion!'
 ]
 
+// Rarity colors for item display
+const ITEM_RARITY_CONFIG: Record<string, { border: string; bg: string; text: string }> = {
+  common: { border: 'border-slate-400', bg: 'bg-slate-100 dark:bg-slate-800', text: 'text-slate-600 dark:text-slate-400' },
+  rare: { border: 'border-blue-400', bg: 'bg-blue-50 dark:bg-blue-900/30', text: 'text-blue-600 dark:text-blue-400' },
+  epic: { border: 'border-purple-400', bg: 'bg-purple-50 dark:bg-purple-900/30', text: 'text-purple-600 dark:text-purple-400' },
+  legendary: { border: 'border-amber-400', bg: 'bg-amber-50 dark:bg-amber-900/30', text: 'text-amber-600 dark:text-amber-400' },
+}
+
 interface BookCompletionRewardProps {
   open: boolean
   onClose: () => void
@@ -94,6 +105,7 @@ interface BookCompletionRewardProps {
     description: string
     icon: string
     xp_reward: number
+    unlocked_item?: UnlockedItem | null
   }
   onComplete?: () => void
 }
@@ -110,6 +122,12 @@ export function BookCompletionReward({
 }: BookCompletionRewardProps) {
   const bookIcon = BOOK_ICONS[book] || '📖'
   const title = COMPLETION_TITLES[Math.floor(Math.random() * COMPLETION_TITLES.length)]
+
+  // Get item info if there's an unlocked item
+  const unlockedItem = achievement?.unlocked_item
+  const itemDef = unlockedItem ? getItemById(unlockedItem.item_key) : null
+  const itemImagePath = itemDef ? getItemImagePath(itemDef) : null
+  const itemRarityConfig = unlockedItem ? ITEM_RARITY_CONFIG[unlockedItem.rarity] || ITEM_RARITY_CONFIG.common : null
 
   return (
     <RewardModal
@@ -169,7 +187,7 @@ export function BookCompletionReward({
 
         {/* Achievement unlock (if earned) */}
         {achievement && (
-          <div className="w-full animate-reward-achievement-slide">
+          <div className="w-full animate-reward-achievement-slide space-y-3">
             <div className="bg-gradient-to-r from-purple-100/80 via-purple-50/80 to-purple-100/80 dark:from-purple-900/50 dark:via-purple-800/50 dark:to-purple-900/50 rounded-xl p-4 border border-purple-500/30">
               <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400 text-xs font-semibold uppercase tracking-wider mb-2">
                 <Sparkles className="w-4 h-4" />
@@ -186,6 +204,56 @@ export function BookCompletionReward({
                 </Badge>
               </div>
             </div>
+
+            {/* Unlocked item (if any) */}
+            {unlockedItem && itemRarityConfig && (
+              <div className={cn(
+                'flex items-center gap-3 p-3 rounded-xl border-2',
+                itemRarityConfig.border,
+                itemRarityConfig.bg
+              )}>
+                {/* Item image */}
+                <div className="relative flex-shrink-0">
+                  <div className={cn(
+                    'w-12 h-12 rounded-lg border-2 overflow-hidden bg-white dark:bg-slate-900 flex items-center justify-center',
+                    itemRarityConfig.border
+                  )}>
+                    {itemImagePath ? (
+                      <img
+                        src={itemImagePath}
+                        alt={unlockedItem.name}
+                        className="w-10 h-10 object-contain"
+                      />
+                    ) : (
+                      <Sparkles className={cn('w-6 h-6', itemRarityConfig.text)} />
+                    )}
+                  </div>
+                  <Sparkles className={cn(
+                    'absolute -top-1 -right-1 w-3 h-3 animate-reward-icon-pulse',
+                    itemRarityConfig.text
+                  )} />
+                </div>
+
+                {/* Item info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Item Unlocked!
+                    </span>
+                    <Badge className={cn(
+                      'text-[9px] px-1.5 py-0 border-0 uppercase tracking-wider',
+                      itemRarityConfig.text,
+                      'bg-white/50 dark:bg-slate-800/50'
+                    )}>
+                      {unlockedItem.rarity}
+                    </Badge>
+                  </div>
+                  <h4 className="font-bold text-sm text-slate-900 dark:text-white truncate">
+                    {unlockedItem.name}
+                  </h4>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

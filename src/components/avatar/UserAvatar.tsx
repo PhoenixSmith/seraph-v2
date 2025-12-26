@@ -2,50 +2,16 @@ import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { AvatarEditor } from './AvatarEditor'
 import { type AvatarConfig, DEFAULT_AVATAR_CONFIG, updateAvatarConfig } from '@/lib/api'
+import { generateAvatarAccessories, type ItemCategory } from '@/config/avatarItems'
 
 // Re-export types from api for convenience
 export type { AvatarConfig } from '@/lib/api'
 export { DEFAULT_AVATAR_CONFIG } from '@/lib/api'
 
-// Accessory categories - organized by type for future expansion
-export const AVATAR_ACCESSORIES = {
-  face: [
-    { id: 'none', name: 'None', src: null },
-    { id: 'happy', name: 'Happy', src: '/avatar/Accesories/Face_Happy.png' },
-    { id: 'happy_2', name: 'Cute', src: '/avatar/Accesories/Face_Happy_2.png' },
-    { id: 'aviators', name: 'Aviators', src: '/avatar/Accesories/Face_Aviators.png' },
-  ],
-  hat: [
-    { id: 'none', name: 'None', src: null },
-    { id: 'crown', name: 'Crown', src: '/avatar/Accesories/Hat_Crown.png' },
-    { id: 'crown_of_thorns', name: 'Crown of Thorns', src: '/avatar/Accesories/Hat_Crown_Of_Thorns.png' },
-    { id: 'top_hat', name: 'Top Hat', src: '/avatar/Accesories/Hat_Top_Hat.png' },
-    { id: 'pony_tail', name: 'Pony Tail', src: '/avatar/Accesories/Hat_Pony_Tail.png' },
-  ],
-  top: [
-    { id: 'none', name: 'None', src: null },
-    { id: 'hoodie', name: 'Hoodie', src: '/avatar/Accesories/Top_Hoodie.png' },
-    { id: 'white_hoodie', name: 'White Hoodie', src: '/avatar/Accesories/Top_White_Hoodie.png' },
-    { id: 'fancy_dress', name: 'Fancy Dress', src: '/avatar/Accesories/Top_Fancy_Dress.png' },
-  ],
-  bottom: [
-    { id: 'none', name: 'None', src: null },
-    { id: 'jeans', name: 'Jeans', src: '/avatar/Accesories/Bottom_Jeans.png' },
-    { id: 'ripped_jeans', name: 'Ripped Jeans', src: '/avatar/Accesories/Bottom_Ripped_Jeans.png' },
-    { id: 'jean_skirt', name: 'Jean Skirt', src: '/avatar/Accesories/Bottom_Jean_Skirt.png' },
-    { id: 'suspenders', name: 'Suspenders', src: '/avatar/Accesories/Bottom_Suspenders.png' },
-  ],
-  outfit: [
-    { id: 'none', name: 'None', src: null },
-    { id: 'sloth_snuggie', name: 'Sloth Snuggie', src: '/avatar/Accesories/Full_Sloth_Snuggie.png' },
-  ],
-  misc: [
-    { id: 'none', name: 'None', src: null },
-    { id: 'number_1', name: '#1 Foam Finger', src: '/avatar/Accesories/Misc_Number_1.png' },
-  ],
-} as const
+// Generate accessories from the centralized config
+export const AVATAR_ACCESSORIES = generateAvatarAccessories()
 
-export type AccessoryCategory = keyof typeof AVATAR_ACCESSORIES
+export type AccessoryCategory = ItemCategory
 
 // Layer order for avatar rendering (bottom to top)
 // 1. Base avatar (lowest)
@@ -108,6 +74,7 @@ interface UserAvatarProps {
   className?: string
   config?: AvatarConfig
   onConfigChange?: (config: AvatarConfig) => void
+  onNavigateToStore?: () => void
 }
 
 const sizeClasses = {
@@ -122,7 +89,8 @@ export function UserAvatar({
   editable = true,
   className,
   config: controlledConfig,
-  onConfigChange
+  onConfigChange,
+  onNavigateToStore
 }: UserAvatarProps) {
   const [isEditorOpen, setIsEditorOpen] = useState(false)
   const [internalConfig, setInternalConfig] = useState<AvatarConfig>(DEFAULT_AVATAR_CONFIG)
@@ -160,7 +128,7 @@ export function UserAvatar({
           key={src}
           src={src}
           alt={index === 0 ? 'Avatar base' : 'Avatar layer'}
-          className="absolute inset-0 w-full h-full object-cover"
+          className="absolute inset-0 w-full h-full object-cover translate-y-[5%]"
           style={{ zIndex: index }}
           draggable={false}
         />
@@ -190,6 +158,7 @@ export function UserAvatar({
           onOpenChange={setIsEditorOpen}
           config={config}
           onConfigChange={handleConfigChange}
+          onNavigateToStore={onNavigateToStore}
         />
       )}
     </>

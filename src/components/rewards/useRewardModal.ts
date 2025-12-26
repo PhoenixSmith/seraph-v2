@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import type { Achievement } from './AchievementUnlockReward'
+import type { UnlockedItem } from '@/lib/api'
 
 export interface BookCompletionReward {
   type: 'book_completion'
@@ -12,12 +13,14 @@ export interface BookCompletionReward {
     description: string
     icon: string
     xp_reward: number
+    unlocked_item?: UnlockedItem | null
   }
 }
 
 export interface AchievementReward {
   type: 'achievement'
   achievement: Achievement
+  unlockedItem?: UnlockedItem | null
   totalXP?: number
 }
 
@@ -137,6 +140,7 @@ export function parseChapterCompletionReward(response: {
       icon: string
       xp_reward: number
     }
+    unlocked_item?: UnlockedItem | null
   }
 }, book: string, chapter: number, totalChapters: number): RewardData | null {
   if (!response.success || response.already_completed) {
@@ -158,7 +162,8 @@ export function parseChapterCompletionReward(response: {
         name: response.achievement.achievement.name,
         description: response.achievement.achievement.description,
         icon: response.achievement.achievement.icon,
-        xp_reward: response.achievement.achievement.xp_reward
+        xp_reward: response.achievement.achievement.xp_reward,
+        unlocked_item: response.achievement.unlocked_item
       }
     }
   }
@@ -174,6 +179,7 @@ export function parseChapterCompletionReward(response: {
         category: 'special' as const, // Default, can be enhanced based on key
         xp_reward: response.achievement.achievement.xp_reward
       },
+      unlockedItem: response.achievement.unlocked_item,
       totalXP: response.total_xp
     }
   }

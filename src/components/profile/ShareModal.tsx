@@ -70,7 +70,7 @@ export function ShareModal({
       if (!dataUrl) return
 
       const link = document.createElement('a')
-      link.download = `scrolily-${user.name || 'reader'}-stats.png`
+      link.download = `kayrho-${user.name || 'reader'}-stats.png`
       link.href = dataUrl
       link.click()
     } finally {
@@ -87,20 +87,20 @@ export function ShareModal({
       // Convert data URL to blob
       const response = await fetch(dataUrl)
       const blob = await response.blob()
-      const file = new File([blob], 'scrolily-stats.png', { type: 'image/png' })
+      const file = new File([blob], 'kayrho-stats.png', { type: 'image/png' })
 
       // Check if Web Share API is available with files support
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
         await navigator.share({
-          title: 'My Scrolily Bible Reading Stats',
-          text: `Check out my Bible reading progress on Scrolily! ${stats.total_xp} XP earned, ${stats.current_streak} day streak!`,
+          title: 'My Kayrho Bible Reading Stats',
+          text: `Check out my Bible reading progress on Kayrho! ${stats.verses_read ?? 0} verses read, ${stats.current_streak} day streak!`,
           files: [file],
         })
       } else if (navigator.share) {
         // Fallback to sharing without file
         await navigator.share({
-          title: 'My Scrolily Bible Reading Stats',
-          text: `Check out my Bible reading progress on Scrolily! ${stats.total_xp} XP earned, ${stats.current_streak} day streak!`,
+          title: 'My Kayrho Bible Reading Stats',
+          text: `Check out my Bible reading progress on Kayrho! ${stats.verses_read ?? 0} verses read, ${stats.current_streak} day streak!`,
         })
       } else {
         // Fallback: copy to clipboard
@@ -116,7 +116,7 @@ export function ShareModal({
     } finally {
       setIsGenerating(false)
     }
-  }, [generateImage, stats.total_xp, stats.current_streak])
+  }, [generateImage, stats.verses_read, stats.current_streak])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

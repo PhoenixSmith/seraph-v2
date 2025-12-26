@@ -1,10 +1,10 @@
 import { forwardRef } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
-import { Star, Flame, BookOpen, Trophy, TrendingUp } from 'lucide-react'
+import { Flame, BookOpen, Trophy, TrendingUp, ScrollText } from 'lucide-react'
 import { type AvatarConfig, getAvatarLayers, DEFAULT_AVATAR_CONFIG } from '@/components/avatar'
 import type * as api from '@/lib/api'
 
-const SIGNUP_URL = 'https://scrolily.com'
+const SIGNUP_URL = 'https://kayrho.com'
 
 interface ShareCardProps {
   user: api.User
@@ -14,7 +14,7 @@ interface ShareCardProps {
 
 export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
   ({ user, stats, achievements }, ref) => {
-    const displayName = user.name || 'Scrolily Reader'
+    const displayName = user.name || 'Kayrho Reader'
     const avatarConfig = user.avatar_config ?? DEFAULT_AVATAR_CONFIG
     const avatarLayers = getAvatarLayers(avatarConfig as AvatarConfig)
     const recentAchievements = achievements.slice(0, 3)
@@ -53,7 +53,7 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
                   key={src}
                   src={src}
                   alt={index === 0 ? 'Avatar base' : 'Avatar layer'}
-                  className="absolute inset-0 w-full h-full object-cover"
+                  className="absolute inset-0 w-full h-full object-cover translate-y-[5%]"
                   style={{ zIndex: index }}
                   crossOrigin="anonymous"
                 />
@@ -72,10 +72,10 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
         {/* Stats Grid */}
         <div className="relative z-10 grid grid-cols-2 gap-3 mb-6">
           <StatItem
-            icon={<Star className="w-5 h-5" />}
-            value={stats.total_xp.toLocaleString()}
-            label="Total XP"
-            color="#f59e0b"
+            icon={<ScrollText className="w-5 h-5" />}
+            value={(stats.verses_read ?? 0).toLocaleString()}
+            label="Verses Read"
+            color="#8b5cf6"
           />
           <StatItem
             icon={<Flame className="w-5 h-5" />}
@@ -148,8 +148,8 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
               <BookOpen className="w-5 h-5 text-white" />
             </div>
             <div>
-              <p className="text-base font-bold text-white">Join me on Scrolily</p>
-              <p className="text-xs text-gray-400">scrolily.com</p>
+              <p className="text-base font-bold text-white">Join me on Kayrho</p>
+              <p className="text-xs text-gray-400">kayrho.com</p>
             </div>
           </div>
           <div className="p-1.5 bg-white rounded-lg">

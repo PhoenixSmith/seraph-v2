@@ -15,7 +15,7 @@ const tierColors: Record<string, string> = {
   Bronze: 'bg-amber-700',
   Silver: 'bg-gray-400',
   Gold: 'bg-yellow-500',
-  Platinum: 'bg-cyan-400',
+  Platinum: 'bg-cyan-600',
   Diamond: 'bg-purple-500',
 }
 

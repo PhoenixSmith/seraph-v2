@@ -105,7 +105,7 @@ export function Auth({ onSkip }: { onSkip?: () => void }) {
     <div className="min-h-screen flex items-center justify-center p-4 bg-background">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-3xl">Scrolily</CardTitle>
+          <CardTitle className="text-3xl">Kayrho</CardTitle>
           <CardDescription>
             {isSignUp ? 'Create an account to start your journey' : 'Sign in to continue your journey'}
           </CardDescription>

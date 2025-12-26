@@ -38,6 +38,7 @@ export function RewardRenderer({
         open={isOpen}
         onClose={onClose}
         achievement={reward.achievement}
+        unlockedItem={reward.unlockedItem}
         totalXP={reward.totalXP}
         onComplete={onComplete}
       />

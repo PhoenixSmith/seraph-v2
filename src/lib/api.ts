@@ -29,6 +29,7 @@ export interface User {
   avatar_url: string | null
   avatar_config: AvatarConfig
   total_xp: number
+  talents: number
   current_streak: number
   longest_streak: number
   last_read_date: string | null
@@ -42,7 +43,8 @@ export async function getCurrentUser(): Promise<User | null> {
   const user = data[0] as unknown as User
   return {
     ...user,
-    avatar_config: user.avatar_config ?? DEFAULT_AVATAR_CONFIG
+    avatar_config: user.avatar_config ?? DEFAULT_AVATAR_CONFIG,
+    talents: user.talents ?? 0
   }
 }
 
@@ -58,6 +60,14 @@ export async function updateAvatarConfig(config: AvatarConfig): Promise<AvatarCo
 // CHAPTER FUNCTIONS
 // ============================================================================
 
+export interface UnlockedItem {
+  item_key: string
+  category: string
+  name: string
+  description: string | null
+  rarity: 'common' | 'rare' | 'epic' | 'legendary'
+}
+
 export interface AchievementUnlock {
   id: string
   key: string
@@ -65,16 +75,20 @@ export interface AchievementUnlock {
   description: string
   icon: string
   xp_reward: number
+  unlocked_item?: UnlockedItem | null
 }
 
 export interface CompleteChapterResult {
   success: boolean
   already_completed: boolean
   xp_awarded: number
+  talents_awarded: number
+  new_talents?: number
   achievement?: {
     awarded: boolean
     reason?: string
     achievement?: AchievementUnlock
+    unlocked_item?: UnlockedItem | null
   }
 }
 
@@ -634,6 +648,7 @@ export async function getGroupLevelThresholds(): Promise<GroupLevelThreshold[]> 
 
 export interface ProfileStats {
   total_xp: number
+  verses_read: number
   rolling_xp: number
   current_streak: number
   longest_streak: number
@@ -904,4 +919,109 @@ export async function browseOpenGroups(excludeGroupId?: string): Promise<OpenGro
   })
   if (error) throw error
   return (data ?? []) as OpenGroup[]
+}
+
+// ============================================================================
+// AVATAR STORE FUNCTIONS
+// ============================================================================
+
+export interface AchievementRequirement {
+  days?: number           // For streak achievements
+  book?: string           // For book completion achievements
+  chapters?: number       // For book completion achievements
+  challenge_wins?: number // For challenge achievements
+}
+
+export interface StoreItem {
+  id: string
+  item_key: string
+  category: string
+  name: string
+  description: string | null
+  unlock_method: 'free' | 'store' | 'achievement' | 'both'
+  talent_cost: number | null
+  achievement_id: string | null
+  achievement_name: string | null
+  achievement_icon: string | null
+  achievement_description: string | null
+  achievement_requirement: AchievementRequirement | null
+  rarity: 'common' | 'rare' | 'epic' | 'legendary'
+  sort_order: number
+  is_owned: boolean
+  can_purchase: boolean
+  can_claim_achievement: boolean
+}
+
+/**
+ * Parse achievement requirement into human-readable text
+ */
+export function formatAchievementRequirement(requirement: AchievementRequirement | null): string | null {
+  if (!requirement) return null
+
+  // Streak achievements
+  if (requirement.days) {
+    return `Reach a ${requirement.days}-day reading streak`
+  }
+
+  // Book completion achievements
+  if (requirement.book && requirement.chapters) {
+    return `Complete all ${requirement.chapters} chapters of ${requirement.book}`
+  }
+
+  // Challenge win achievements
+  if (requirement.challenge_wins) {
+    return `Win ${requirement.challenge_wins} group challenge${requirement.challenge_wins > 1 ? 's' : ''}`
+  }
+
+  return null
+}
+
+export interface PurchaseResult {
+  success: boolean
+  message: string
+  item_key?: string
+  item_name?: string
+  talents_spent?: number
+  talents_remaining?: number
+  required?: number
+  current?: number
+}
+
+export interface UserAvatarItem {
+  item_key: string
+  category: string
+  name: string
+  rarity: string
+}
+
+export async function getStoreItems(): Promise<StoreItem[]> {
+  const { data, error } = await supabase.rpc('get_store_items')
+  if (error) throw error
+  // Map item_id from RPC to id for frontend consistency
+  return ((data ?? []) as Array<Omit<StoreItem, 'id'> & { item_id: string }>).map(item => ({
+    ...item,
+    id: item.item_id,
+  })) as StoreItem[]
+}
+
+export async function purchaseAvatarItem(itemId: string): Promise<PurchaseResult> {
+  const { data, error } = await supabase.rpc('purchase_avatar_item', {
+    p_item_id: itemId
+  })
+  if (error) throw error
+  return data as PurchaseResult
+}
+
+export async function claimAchievementItem(itemId: string): Promise<PurchaseResult> {
+  const { data, error } = await supabase.rpc('claim_achievement_item', {
+    p_item_id: itemId
+  })
+  if (error) throw error
+  return data as PurchaseResult
+}
+
+export async function getUserAvatarItems(): Promise<UserAvatarItem[]> {
+  const { data, error } = await supabase.rpc('get_user_avatar_items')
+  if (error) throw error
+  return (data ?? []) as UserAvatarItem[]
 }

@@ -9,10 +9,14 @@ interface GroupLevelProgressProps {
 }
 
 const LEVELS = [
-  { name: 'Base', threshold: 0, color: '#94a3b8' },
-  { name: 'Mid', threshold: 200, color: '#3b82f6' },
-  { name: 'Advanced', threshold: 500, color: '#8b5cf6' }
+  { name: 'Angels', threshold: 0, color: '#94a3b8' },
+  { name: 'Archangels', threshold: 500, color: '#3b82f6' },
+  { name: 'Virtues', threshold: 1000, color: '#8b5cf6' },
+  { name: 'Cherubim', threshold: 2000, color: '#f59e0b' },
+  { name: 'Seraphim', threshold: 5000, color: '#f97316' }
 ]
+
+const MAX_THRESHOLD = LEVELS[LEVELS.length - 1].threshold
 
 export function GroupLevelProgress({ groupId }: GroupLevelProgressProps) {
   const levelInfo = useQuery(() => api.getGroupLevelInfo(groupId), [groupId])
@@ -69,8 +73,15 @@ export function GroupLevelProgress({ groupId }: GroupLevelProgressProps) {
           <div
             className="h-full rounded-full transition-all duration-500"
             style={{
-              width: `${Math.min((weeklyXp / 500) * 100, 100)}%`,
-              background: `linear-gradient(90deg, ${LEVELS[0].color}, ${weeklyXp >= 200 ? LEVELS[1].color : LEVELS[0].color}, ${weeklyXp >= 500 ? LEVELS[2].color : weeklyXp >= 200 ? LEVELS[1].color : LEVELS[0].color})`
+              width: `${Math.min((weeklyXp / MAX_THRESHOLD) * 100, 100)}%`,
+              background: (() => {
+                // Find current level color for gradient
+                let currentColor = LEVELS[0].color
+                for (const level of LEVELS) {
+                  if (weeklyXp >= level.threshold) currentColor = level.color
+                }
+                return `linear-gradient(90deg, ${LEVELS[0].color}, ${currentColor})`
+              })()
             }}
           />
         </div>
@@ -78,7 +89,7 @@ export function GroupLevelProgress({ groupId }: GroupLevelProgressProps) {
         {/* Level markers */}
         <div className="absolute top-0 left-0 right-0 h-3 flex items-center">
           {LEVELS.map((level, idx) => {
-            const position = idx === 0 ? 0 : (level.threshold / 500) * 100
+            const position = idx === 0 ? 0 : (level.threshold / MAX_THRESHOLD) * 100
             const isActive = weeklyXp >= level.threshold
             const isCurrent = levelInfo.current_level === level.name
 
@@ -107,7 +118,7 @@ export function GroupLevelProgress({ groupId }: GroupLevelProgressProps) {
       </div>
 
       {/* Level Cards */}
-      <div className="grid grid-cols-3 gap-2 mb-4">
+      <div className="grid grid-cols-5 gap-1.5 mb-4">
         {LEVELS.map((level) => {
           const isActive = weeklyXp >= level.threshold
           const isCurrent = levelInfo.current_level === level.name
@@ -173,8 +184,8 @@ export function GroupLevelProgress({ groupId }: GroupLevelProgressProps) {
             <span>{levelInfo.xp_to_next_level} XP to {levelInfo.next_level}</span>
           </div>
         )}
-        {levelInfo.current_level === 'Advanced' && (
-          <div className="flex items-center gap-1.5 text-purple-600 dark:text-purple-400 font-medium">
+        {levelInfo.current_level === 'Seraphim' && (
+          <div className="flex items-center gap-1.5 text-orange-500 dark:text-orange-400 font-medium">
             <Trophy className="h-4 w-4" />
             <span>Max level!</span>
           </div>
