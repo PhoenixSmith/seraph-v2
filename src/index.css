@@ -43,6 +43,21 @@
   }
 }
 
+@keyframes fade-out {
+  0% {
+    opacity: 1;
+    visibility: visible;
+  }
+  100% {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+.animate-fade-out {
+  animation: fade-out 300ms ease-out forwards;
+}
+
 /* Gamified quiz answer effects */
 @keyframes correct-pulse {
   0%, 100% {
@@ -740,7 +755,7 @@
 :root {
   --background: 0 0% 100%;
   --foreground: 222.2 84% 4.9%;
-  --card: 0 0% 100%;
+  --card: 60 30% 97%;
   --card-foreground: 222.2 84% 4.9%;
   --popover: 0 0% 100%;
   --popover-foreground: 222.2 84% 4.9%;

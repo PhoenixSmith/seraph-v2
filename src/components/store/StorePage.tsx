@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Coins, ShoppingBag, Loader2 } from 'lucide-react'
+import { Coins, ShoppingBag, Loader2, Trophy } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import {
@@ -125,26 +125,34 @@ export function StorePage({ userTalents, onTalentsChange }: StorePageProps) {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <ShoppingBag className="w-6 h-6 text-amber-500" />
-          <h1 className="text-2xl font-bold">Avatar Store</h1>
+      {/* Header - Duolingo style */}
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center border-b-4 border-orange-600 shadow-lg">
+            <ShoppingBag className="w-7 h-7 text-white drop-shadow-sm" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Avatar Store</h1>
+            <p className="text-sm text-muted-foreground font-medium">Customize Your Look!</p>
+          </div>
         </div>
         <TalentsDisplay talents={userTalents} size="lg" />
       </div>
 
-      {/* Category Tabs */}
-      <Tabs value={category} onValueChange={setCategory} className="mb-6">
-        <TabsList className="flex flex-wrap h-auto gap-1 bg-transparent p-0">
+      {/* Category Tabs - Chunky Duolingo pills */}
+      <Tabs value={category} onValueChange={setCategory} className="mb-8">
+        <TabsList className="flex flex-wrap h-auto gap-2 bg-transparent p-0">
           {CATEGORIES.map((cat) => (
             <TabsTrigger
               key={cat.id}
               value={cat.id}
               className={cn(
-                'px-3 py-1.5 text-sm rounded-full border',
-                'data-[state=active]:bg-amber-100 data-[state=active]:text-amber-800 data-[state=active]:border-amber-300',
-                'dark:data-[state=active]:bg-amber-900/30 dark:data-[state=active]:text-amber-300 dark:data-[state=active]:border-amber-700'
+                'px-5 py-2.5 text-sm font-bold rounded-2xl border-2 border-b-4 transition-all',
+                'bg-card text-muted-foreground border-border hover:bg-muted',
+                'data-[state=active]:bg-gradient-to-b data-[state=active]:from-amber-400 data-[state=active]:to-amber-500',
+                'data-[state=active]:text-white data-[state=active]:border-amber-500 data-[state=active]:border-b-amber-600',
+                'data-[state=active]:shadow-md',
+                'active:border-b-2 active:mt-[2px]'
               )}
             >
               {cat.label}
@@ -155,21 +163,30 @@ export function StorePage({ userTalents, onTalentsChange }: StorePageProps) {
 
       {/* Items Grid */}
       {loading ? (
-        <div className="flex-1 flex items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+        <div className="flex-1 flex flex-col items-center justify-center gap-4">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center border-b-4 border-orange-600 shadow-lg animate-pulse">
+            <Loader2 className="w-8 h-8 animate-spin text-white" />
+          </div>
+          <p className="text-muted-foreground font-bold">Loading items...</p>
         </div>
       ) : error ? (
-        <div className="flex-1 flex flex-col items-center justify-center text-red-500 gap-2">
-          <p>Error: {error}</p>
-          <Button variant="outline" onClick={loadItems}>Retry</Button>
+        <div className="flex-1 flex flex-col items-center justify-center gap-4">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-red-400 to-red-500 flex items-center justify-center border-b-4 border-red-600 shadow-lg">
+            <span className="text-3xl">😕</span>
+          </div>
+          <p className="text-red-500 font-bold">Oops! {error}</p>
+          <Button variant="duolingo-orange" size="duolingo" onClick={loadItems}>Try Again</Button>
         </div>
       ) : sortedItems.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-2">
-          <p>No items in this category</p>
-          <p className="text-xs">(Total loaded: {items.length})</p>
+        <div className="flex-1 flex flex-col items-center justify-center gap-4">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-slate-300 to-slate-400 flex items-center justify-center border-b-4 border-slate-500 shadow-lg">
+            <span className="text-3xl">🔍</span>
+          </div>
+          <p className="text-muted-foreground font-bold">No items here yet!</p>
+          <p className="text-xs text-muted-foreground">(Total loaded: {items.length})</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5">
           {sortedItems.map((item) => (
             <StoreItemCard
               key={item.id}
@@ -182,77 +199,111 @@ export function StorePage({ userTalents, onTalentsChange }: StorePageProps) {
         </div>
       )}
 
-      {/* Purchase Confirmation Dialog */}
+      {/* Purchase Confirmation Dialog - Duolingo style */}
       <Dialog open={!!purchaseItem} onOpenChange={() => setPurchaseItem(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirm Purchase</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to purchase{' '}
-              <span className="font-semibold">{purchaseItem?.name}</span>?
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex items-center justify-center gap-4 py-4">
-            <div className="text-center">
-              <div className="text-sm text-muted-foreground mb-1">Cost</div>
-              <div className="flex items-center gap-1 text-lg font-semibold text-amber-600">
-                <Coins className="w-5 h-5" />
-                {purchaseItem?.talent_cost}
+        <DialogContent className="rounded-3xl border-2 border-b-4 border-border p-0 overflow-hidden max-w-sm">
+          <div className="p-6 pb-4">
+            <DialogHeader className="text-center pb-2">
+              <DialogTitle className="text-xl font-bold">Buy this item?</DialogTitle>
+              <DialogDescription className="text-base">
+                <span className="font-bold text-foreground">{purchaseItem?.name}</span>
+              </DialogDescription>
+            </DialogHeader>
+
+            {/* Cost breakdown - chunky boxes */}
+            <div className="flex items-center justify-center gap-3 py-6">
+              <div className="bg-muted rounded-2xl p-4 text-center min-w-[100px] border-2 border-b-4 border-border">
+                <div className="text-xs text-muted-foreground font-bold uppercase mb-2">Cost</div>
+                <div className="flex items-center justify-center gap-1.5 text-xl font-bold text-amber-600">
+                  <Coins className="w-5 h-5" />
+                  {purchaseItem?.talent_cost}
+                </div>
               </div>
-            </div>
-            <div className="text-2xl text-muted-foreground">&rarr;</div>
-            <div className="text-center">
-              <div className="text-sm text-muted-foreground mb-1">Remaining</div>
-              <div className="flex items-center gap-1 text-lg font-semibold text-amber-600">
-                <Coins className="w-5 h-5" />
-                {userTalents - (purchaseItem?.talent_cost ?? 0)}
+              <div className="text-3xl text-muted-foreground font-bold">→</div>
+              <div className="bg-muted rounded-2xl p-4 text-center min-w-[100px] border-2 border-b-4 border-border">
+                <div className="text-xs text-muted-foreground font-bold uppercase mb-2">Left</div>
+                <div className="flex items-center justify-center gap-1.5 text-xl font-bold text-amber-600">
+                  <Coins className="w-5 h-5" />
+                  {userTalents - (purchaseItem?.talent_cost ?? 0)}
+                </div>
               </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPurchaseItem(null)} disabled={purchasing}>
-              Cancel
-            </Button>
+
+          {/* Footer with chunky buttons */}
+          <div className="bg-muted/50 p-4 flex flex-col gap-3">
             <Button
+              variant="duolingo-orange"
+              size="duolingo"
+              className="w-full"
               onClick={handlePurchase}
               disabled={purchasing}
-              className="bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600"
             >
               {purchasing ? (
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                <Loader2 className="w-5 h-5 animate-spin mr-2" />
               ) : (
-                <Coins className="w-4 h-4 mr-2" />
+                <Coins className="w-5 h-5 mr-2" />
               )}
-              Purchase
+              Buy Now
             </Button>
-          </DialogFooter>
+            <Button
+              variant="duolingo-secondary"
+              size="duolingo"
+              className="w-full"
+              onClick={() => setPurchaseItem(null)}
+              disabled={purchasing}
+            >
+              Maybe Later
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
-      {/* Claim Confirmation Dialog */}
+      {/* Claim Confirmation Dialog - Duolingo style */}
       <Dialog open={!!claimItem} onOpenChange={() => setClaimItem(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Claim Achievement Reward</DialogTitle>
-            <DialogDescription>
-              You've earned{' '}
-              <span className="font-semibold">{claimItem?.name}</span> by unlocking the{' '}
-              <span className="font-semibold">{claimItem?.achievement_name}</span> achievement!
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setClaimItem(null)} disabled={claiming}>
-              Cancel
-            </Button>
+        <DialogContent className="rounded-3xl border-2 border-b-4 border-border p-0 overflow-hidden max-w-sm">
+          <div className="p-6 pb-4 text-center">
+            {/* Achievement icon */}
+            <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center border-b-4 border-purple-600 shadow-lg">
+              <Trophy className="w-10 h-10 text-white drop-shadow-sm" />
+            </div>
+
+            <DialogHeader className="text-center pb-2">
+              <DialogTitle className="text-xl font-bold">Claim Your Reward!</DialogTitle>
+              <DialogDescription className="text-base space-y-2">
+                <span className="block">You've earned</span>
+                <span className="block font-bold text-foreground text-lg">{claimItem?.name}</span>
+                <span className="block text-sm">by unlocking</span>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-100 dark:bg-purple-900/30 rounded-xl text-purple-700 dark:text-purple-300 font-bold">
+                  <span>{claimItem?.achievement_icon}</span>
+                  <span>{claimItem?.achievement_name}</span>
+                </span>
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+
+          {/* Footer with chunky buttons */}
+          <div className="bg-muted/50 p-4 flex flex-col gap-3">
             <Button
+              variant="duolingo"
+              size="duolingo"
+              className="w-full bg-gradient-to-b from-purple-500 to-purple-600 border-purple-700 hover:from-purple-400 hover:to-purple-500"
               onClick={handleClaim}
               disabled={claiming}
-              className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
             >
-              {claiming ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              {claiming ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Trophy className="w-5 h-5 mr-2" />}
               Claim Reward
             </Button>
-          </DialogFooter>
+            <Button
+              variant="duolingo-secondary"
+              size="duolingo"
+              className="w-full"
+              onClick={() => setClaimItem(null)}
+              disabled={claiming}
+            >
+              Not Now
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

@@ -676,27 +676,29 @@ function App() {
     const rows = Math.ceil(totalChapters / COLS)
     const bookColor = getPastelColor(currentBook?.name || 'Genesis')
     const textColor = getDarkerColor(currentBook?.name || 'Genesis')
-    const progressPercent = Math.round((completedChapters.length / totalChapters) * 100)
+    const targetProgressPercent = totalChapters > 0
+      ? Math.round((completedChapters.length / totalChapters) * 100)
+      : 0
     const [shouldAnimateTiles, setShouldAnimateTiles] = useState(false)
     const prevBookRef = useRef<string | undefined>(undefined)
 
-    // Track progress changes - only animate AFTER initial mount
+    // Animate progress bar - start at 0, animate to target
+    const [displayedProgress, setDisplayedProgress] = useState(0)
     const [progressAnimating, setProgressAnimating] = useState(false)
-    const prevProgressRef = useRef(progressPercent)
-    const hasMountedRef = useRef(false)
 
-    useLayoutEffect(() => {
-      if (!hasMountedRef.current) {
-        hasMountedRef.current = true
-        return
-      }
-      if (prevProgressRef.current !== progressPercent) {
-        prevProgressRef.current = progressPercent
+    // Update progress with animation whenever target changes
+    useEffect(() => {
+      // Delay to allow the 0% state to render first for CSS transition
+      const timer = setTimeout(() => {
+        setDisplayedProgress(targetProgressPercent)
         setProgressAnimating(true)
-        const timer = setTimeout(() => setProgressAnimating(false), 1000)
-        return () => clearTimeout(timer)
+      }, 50)
+      const animTimer = setTimeout(() => setProgressAnimating(false), 1050)
+      return () => {
+        clearTimeout(timer)
+        clearTimeout(animTimer)
       }
-    }, [progressPercent])
+    }, [targetProgressPercent])
 
     // Animate tiles on mount and when book changes
     useLayoutEffect(() => {
@@ -788,7 +790,7 @@ function App() {
             </div>
             <div className="text-right">
               <AnimatedNumber
-                value={progressPercent}
+                value={targetProgressPercent}
                 className="text-3xl font-bold"
                 style={{ color: textColor }}
               />
@@ -818,7 +820,7 @@ function App() {
               <div
                 className="h-full rounded-full relative overflow-hidden"
                 style={{
-                  width: `${progressPercent}%`,
+                  width: `${displayedProgress}%`,
                   background: `linear-gradient(90deg, ${textColor}, ${bookColor})`,
                   transformOrigin: 'left',
                   transition: 'width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)',
@@ -1120,10 +1122,7 @@ function App() {
   }
 
   if (!isAuthenticated && !debugMode) {
-    return <Auth onSkip={() => {
-      localStorage.setItem('debugMode', 'true')
-      setDebugMode(true)
-    }} />
+    return <Auth />
   }
 
   // Render profile page if showProfile is true
@@ -1146,21 +1145,24 @@ function App() {
         onClose={dismissReward}
       />
 
-      {/* Splash screen overlay */}
-      {introPhase !== 'done' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background pointer-events-none">
-          <div
-            className={cn(
-              "flex items-center gap-2 transition-all duration-500 ease-out",
-              introPhase === 'splash' && "scale-[2.5]",
-              introPhase === 'animating' && "scale-100 -translate-y-[calc(50vh-4rem)]"
-            )}
-          >
-            <h1 className="text-2xl font-semibold tracking-tight">Kayrho</h1>
-            <KayrhoLogo size={28} className="text-blue-400" />
-          </div>
+      {/* Splash screen overlay - fades out smoothly when done */}
+      <div
+        className={cn(
+          "fixed inset-0 z-50 flex items-center justify-center bg-background pointer-events-none",
+          introPhase === 'done' && "animate-fade-out"
+        )}
+      >
+        <div
+          className={cn(
+            "flex items-center gap-2 transition-all duration-500 ease-out",
+            introPhase === 'splash' && "scale-[2.5]",
+            (introPhase === 'animating' || introPhase === 'done') && "scale-100 -translate-y-[calc(50vh-4rem)]"
+          )}
+        >
+          <h1 className="text-2xl font-semibold tracking-tight">Kayrho</h1>
+          <KayrhoLogo size={28} className="text-blue-400" />
         </div>
-      )}
+      </div>
 
       {quizMode ? (
         quizState.completed ? <QuizComplete /> : <QuizView />
@@ -1376,7 +1378,7 @@ function App() {
                     return (
                       <>
                         <Button
-                          className="min-w-[140px] h-11 px-8 rounded-2xl border-b-4 font-bold uppercase tracking-wide hover:-translate-y-0.5 active:border-b-2 active:translate-y-0 active:mt-0 active:mb-0 transition-all duration-100 shadow-lg"
+                          className="min-w-[140px] h-11 px-8 border-b-4 font-bold uppercase tracking-wide hover:-translate-y-0.5 active:border-b-2 active:translate-y-0 active:mt-0 active:mb-0 transition-all duration-100 shadow-lg"
                           style={{
                             backgroundColor: bookColor,
                             color: textColor,
@@ -1397,7 +1399,7 @@ function App() {
                     return (
                       <Button
                         size="lg"
-                        className="min-w-[160px] rounded-2xl border-b-4 font-bold uppercase tracking-wide hover:-translate-y-0.5 active:border-b-2 active:translate-y-0 transition-all duration-100 shadow-lg"
+                        className="min-w-[160px] border-b-4 font-bold uppercase tracking-wide hover:-translate-y-0.5 active:border-b-2 active:translate-y-0 transition-all duration-100 shadow-lg"
                         style={{
                           backgroundColor: bookColor,
                           color: textColor,

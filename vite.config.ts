@@ -10,12 +10,9 @@ export default defineConfig({
     },
   },
   server: {
-    host: '0.0.0.0',
+    host: 'localhost',
     port: 8080,
-    allowedHosts: ['ts1.zocomputer.io', 'seraph-v2-phoenix.zocomputer.io', '.zocomputer.io', 'p1.proxy.zo.computer', '.proxy.zo.computer', 'localhost', '127.0.0.1'],
-    hmr: {
-      host: 'ts1.zocomputer.io',
-    },
+    hmr: true,
   },
   preview: {
     host: '0.0.0.0',
