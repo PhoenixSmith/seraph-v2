@@ -1,4 +1,4 @@
-import { StickyNote, Plus } from 'lucide-react'
+import { StickyNote, Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface NoteIndicatorProps {
@@ -52,7 +52,7 @@ export function NoteIndicator({
           )}
         </>
       ) : (
-        <Plus className="h-3.5 w-3.5" />
+        <Pencil className="h-3.5 w-3.5" />
       )}
     </button>
   )

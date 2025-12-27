@@ -7,6 +7,7 @@ import { getAvatarLayers, DEFAULT_AVATAR_CONFIG } from '@/components/avatar'
 import { GroupsPage } from './components/groups'
 import { ProfilePage } from './components/profile'
 import { useRewardModal, RewardRenderer } from './components/rewards'
+import { useOnboarding, OnboardingModal } from './components/onboarding'
 import { StorePage } from './components/store'
 import { Verse } from './components/notes'
 import { Button } from '@/components/ui/button'
@@ -116,6 +117,7 @@ function App() {
   const { isLoading, isAuthenticated } = useSupabaseAuth()
   const { play: playSound, stage: stageSound, fire: fireSound } = useSound()
   const { currentReward, isOpen: isRewardOpen, queueReward, dismissReward } = useRewardModal()
+  const onboarding = useOnboarding()
   const [debugMode, setDebugMode] = useState(() => {
     return localStorage.getItem('debugMode') === 'true'
   })
@@ -261,14 +263,33 @@ function App() {
 
   // Navigate to first incomplete book when Progress tab loads
   const prevViewModeRef = useRef<string | null>(null)
+  const hasNavigatedRef = useRef(false)
+  const [progressTabReady, setProgressTabReady] = useState(false)
   useEffect(() => {
-    const isFirstMount = prevViewModeRef.current === null
-    const wasNotOverview = prevViewModeRef.current !== 'overview'
+    const wasNotOverview = prevViewModeRef.current !== null && prevViewModeRef.current !== 'overview'
     prevViewModeRef.current = viewMode
 
-    // Trigger on first mount (if starting on overview) or when switching TO the progress tab
-    if (viewMode !== 'overview' || !isAuthenticated) return
-    if (!isFirstMount && !wasNotOverview) return
+    // Not on overview tab - reset ready state for next time
+    if (viewMode !== 'overview') {
+      setProgressTabReady(false)
+      hasNavigatedRef.current = false
+      return
+    }
+
+    // Not authenticated - just show current book
+    if (!isAuthenticated) {
+      setProgressTabReady(true)
+      return
+    }
+
+    // Already navigated and staying on overview - stay ready
+    if (hasNavigatedRef.current && !wasNotOverview) {
+      setProgressTabReady(true)
+      return
+    }
+
+    // Mark as not ready while we determine the target book
+    setProgressTabReady(false)
 
     api.getAllBookProgress().then((progress) => {
       // Create a map of book name -> completion status
@@ -293,7 +314,13 @@ function App() {
       if (targetIndex !== position.book) {
         setPosition({ book: targetIndex, chapter: 0, verse: 0 })
       }
-    }).catch(console.error)
+      hasNavigatedRef.current = true
+      setProgressTabReady(true)
+    }).catch((err) => {
+      console.error(err)
+      hasNavigatedRef.current = true
+      setProgressTabReady(true)
+    })
   }, [viewMode, isAuthenticated, books])
 
   // Verse notes state
@@ -895,38 +922,55 @@ function App() {
     const targetProgressPercent = totalChapters > 0
       ? Math.round((completedChapters.length / totalChapters) * 100)
       : 0
-    const [shouldAnimateTiles, setShouldAnimateTiles] = useState(false)
-    const prevBookRef = useRef<string | undefined>(undefined)
+    // Animation key - changes on book change to force fresh CSS animations on tiles/lines
+    // useMemo ensures stable value per book (no flicker from re-renders)
+    const animationKey = useMemo(() => currentBook?.name || 'default', [currentBook?.name])
 
-    // Animate progress bar - start at 0, animate to target
+    // Track scroll position for gradient effect
+    const [scrollProgress, setScrollProgress] = useState(0)
+    const chapterGridRef = useRef<HTMLDivElement>(null)
+
+    // Progress bar state
     const [displayedProgress, setDisplayedProgress] = useState(0)
     const [progressAnimating, setProgressAnimating] = useState(false)
+    const rafRef = useRef<number>(0)
+    const timerRef = useRef<ReturnType<typeof setTimeout>>()
 
-    // Update progress with animation whenever target changes
-    useEffect(() => {
-      // Delay to allow the 0% state to render first for CSS transition
-      const timer = setTimeout(() => {
-        setDisplayedProgress(targetProgressPercent)
-        setProgressAnimating(true)
-      }, 50)
-      const animTimer = setTimeout(() => setProgressAnimating(false), 1050)
-      return () => {
-        clearTimeout(timer)
-        clearTimeout(animTimer)
-      }
-    }, [targetProgressPercent])
-
-    // Animate tiles on mount and when book changes
+    // Animate progress using double-RAF (immune to StrictMode double-fire)
     useLayoutEffect(() => {
-      // Always animate on mount (prevBookRef starts undefined) or when book changes
-      if (prevBookRef.current !== currentBook?.name) {
-        setShouldAnimateTiles(true)
-        prevBookRef.current = currentBook?.name
-        // Keep animation state for duration of staggered animation
-        const timer = setTimeout(() => setShouldAnimateTiles(false), 1500)
-        return () => clearTimeout(timer)
+      // Cancel any pending animation frame or timer
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+      if (timerRef.current) clearTimeout(timerRef.current)
+
+      // Reset to 0
+      setDisplayedProgress(0)
+      setProgressAnimating(false)
+
+      // Double requestAnimationFrame ensures 0% renders before animating
+      // More reliable than setTimeout, immune to StrictMode issues
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = requestAnimationFrame(() => {
+          setDisplayedProgress(targetProgressPercent)
+          setProgressAnimating(true)
+          timerRef.current = setTimeout(() => setProgressAnimating(false), 1000)
+        })
+      })
+
+      return () => {
+        if (rafRef.current) cancelAnimationFrame(rafRef.current)
+        if (timerRef.current) clearTimeout(timerRef.current)
       }
-    }, [currentBook?.name])
+    }, [animationKey, targetProgressPercent])
+
+    // Handle scroll for gradient effect
+    const handleChapterGridScroll = useCallback((e: Event) => {
+      const container = e.target as HTMLElement
+      if (!container) return
+      const { scrollHeight, clientHeight, scrollTop } = container
+      const maxScroll = scrollHeight - clientHeight
+      const progress = maxScroll > 0 ? Math.min(100, (scrollTop / maxScroll) * 100) : 0
+      setScrollProgress(progress)
+    }, [])
 
     const getGridPosition = (index: number) => {
       const row = Math.floor(index / COLS)
@@ -951,7 +995,7 @@ function App() {
 
       return (
         <svg
-          className="absolute top-0 left-0 pointer-events-none"
+          className="absolute top-3 left-0 pointer-events-none"
           width={totalWidth}
           height={totalHeight}
         >
@@ -972,9 +1016,9 @@ function App() {
                 stroke={isCompletedPath ? bookColor : undefined}
                 className={cn(
                   isCompletedPath ? "opacity-60" : "stroke-stone-200 dark:stroke-stone-700",
-                  shouldAnimateTiles && "animate-connection-line"
+                  "animate-connection-line"
                 )}
-                style={shouldAnimateTiles ? { animationDelay: `${lineDelay}ms` } : undefined}
+                style={{ animationDelay: `${lineDelay}ms` }}
               />
             )
           })}
@@ -986,7 +1030,7 @@ function App() {
       <div className="flex-1 flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-500">
         {/* Hero Header */}
         <div
-          className="relative -mx-4 -mt-4 px-6 pt-8 pb-6 mb-6"
+          className="relative -mx-4 -mt-4 px-6 pt-6 pb-4 mb-4"
           style={{
             background: `linear-gradient(135deg, ${bookColor}40 0%, ${bookColor}20 50%, transparent 100%)`
           }}
@@ -1015,7 +1059,7 @@ function App() {
           </div>
 
           {/* Progress Bar */}
-          <div className="mt-5">
+          <div className="mt-4">
             {(() => {
               const nextChapterIdx = chapters.findIndex((ch: { chapter: number }) => !completedChapters.includes(ch.chapter))
               const nextChapter = nextChapterIdx >= 0 ? chapters[nextChapterIdx] : null
@@ -1039,7 +1083,8 @@ function App() {
                   width: `${displayedProgress}%`,
                   background: `linear-gradient(90deg, ${textColor}, ${bookColor})`,
                   transformOrigin: 'left',
-                  transition: 'width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                  // Use transition only when not in animation mode to prevent competing effects
+                  transition: progressAnimating ? 'none' : 'width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)',
                   animation: progressAnimating ? 'progress-fill-spring 0.7s cubic-bezier(0.34, 1.56, 0.64, 1), progress-celebrate-combo 0.8s ease-out' : undefined
                 }}
               >
@@ -1059,8 +1104,8 @@ function App() {
         </div>
 
         {/* Chapter Grid */}
-        <div className="flex-1 flex justify-center px-2">
-          <div className="relative">
+        <div className="flex-1 flex justify-center px-2 overflow-y-auto mt-2" onScroll={handleChapterGridScroll} ref={chapterGridRef}>
+          <div className="relative pt-3">
             <ConnectionLines />
             <div
               className="grid gap-2 relative z-10"
@@ -1085,7 +1130,7 @@ function App() {
                       !isLocked && "hover:-translate-y-0.5 active:border-b-2 active:mt-[2px] active:mb-[-2px]",
                       isCurrent && !isLocked && "ring-2 ring-offset-2 ring-offset-background",
                       isLocked && "cursor-not-allowed",
-                      shouldAnimateTiles && "animate-chapter-tile-pop-in"
+                      "animate-chapter-tile-pop-in"
                     )}
                     style={{
                       backgroundColor: bookColor,
@@ -1099,15 +1144,15 @@ function App() {
                       gridColumn: col + 1,
                       gridRow: row + 1,
                       ringColor: isCurrent ? textColor : undefined,
-                      animationDelay: shouldAnimateTiles ? `${staggerDelay}ms` : undefined,
+                      animationDelay: `${staggerDelay}ms`,
                     }}
                     onClick={() => !isLocked && selectChapterFromOverview(idx)}
                     disabled={isLocked}
                   >
                     {isLocked ? (
-                      <Lock className={cn("w-4 h-4", shouldAnimateTiles ? "animate-lock-in" : "opacity-40")} style={{ animationDelay: shouldAnimateTiles ? `${staggerDelay + 150}ms` : undefined }} />
+                      <Lock className="w-4 h-4 animate-lock-in" style={{ animationDelay: `${staggerDelay + 150}ms` }} />
                     ) : (
-                      <div className={cn("flex flex-col items-center", shouldAnimateTiles && "animate-chapter-content-in")} style={{ animationDelay: shouldAnimateTiles ? `${staggerDelay + 150}ms` : undefined }}>
+                      <div className="flex flex-col items-center animate-chapter-content-in" style={{ animationDelay: `${staggerDelay + 150}ms` }}>
                         <span className="text-base font-bold">{chapterNum}</span>
                         <span className="text-[9px] font-medium opacity-60">{verseCount}v</span>
                       </div>
@@ -1356,7 +1401,7 @@ function App() {
   }
 
   return (
-    <div className="max-w-[680px] mx-auto px-6 py-12 min-h-screen flex flex-col relative">
+    <div className="max-w-[680px] mx-auto px-6 py-12 pt-16 min-h-screen flex flex-col relative">
       {showConfetti && <Confetti />}
 
       {/* Reward celebration modal */}
@@ -1365,6 +1410,11 @@ function App() {
         isOpen={isRewardOpen}
         onClose={dismissReward}
       />
+
+      {/* Onboarding slides for new users */}
+      {isAuthenticated && !isLoading && (
+        <OnboardingModal {...onboarding} />
+      )}
 
       {/* Splash screen overlay - fades out smoothly when done */}
       <div
@@ -1489,26 +1539,32 @@ function App() {
           ) : viewMode === 'groups' ? (
             <GroupsPage currentUserId={user?.id} onNavigateToVerse={navigateToVerse} />
           ) : viewMode === 'overview' ? (
-            <>
-              <div className="flex justify-center mb-6">
-                <Select
-                  value={position.book.toString()}
-                  onValueChange={(v) => setBookIndex(Number(v))}
-                >
-                  <SelectTrigger className="w-[200px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {books.map((book: { name: string }, idx: number) => (
-                      <SelectItem key={book.name} value={idx.toString()}>
-                        {book.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            progressTabReady ? (
+              <>
+                <div className="flex justify-center mb-6">
+                  <Select
+                    value={position.book.toString()}
+                    onValueChange={(v) => setBookIndex(Number(v))}
+                  >
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {books.map((book: { name: string }, idx: number) => (
+                        <SelectItem key={book.name} value={idx.toString()}>
+                          {book.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <ChapterOverview />
+              </>
+            ) : (
+              <div className="flex-1 flex items-center justify-center">
+                <div className="w-8 h-8 border-3 border-border border-t-primary rounded-full animate-spin" />
               </div>
-              <ChapterOverview />
-            </>
+            )
           ) : (
             <>
               <div className="flex gap-3 justify-center flex-wrap mb-8">

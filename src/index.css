@@ -583,8 +583,7 @@
 }
 
 .animate-chapter-tile-pop-in {
-  animation: chapter-tile-pop-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-  opacity: 0;
+  animation: chapter-tile-pop-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
 /* Lock icon fade transition */
@@ -603,7 +602,7 @@
 }
 
 .animate-lock-in {
-  animation: lock-fade-in 0.3s ease-out forwards;
+  animation: lock-fade-in 0.3s ease-out both;
 }
 
 /* Chapter content (number/verses) fade in */
@@ -619,7 +618,7 @@
 }
 
 .animate-chapter-content-in {
-  animation: chapter-content-fade-in 0.25s ease-out forwards;
+  animation: chapter-content-fade-in 0.25s ease-out both;
 }
 
 /* Connection line draw animation */
@@ -634,8 +633,7 @@
 
 .animate-connection-line {
   stroke-dasharray: 100;
-  stroke-dashoffset: 100;
-  animation: connection-line-draw 0.35s ease-out forwards;
+  animation: connection-line-draw 0.35s ease-out both;
 }
 
 /* ========================================
@@ -833,4 +831,38 @@ h1, h2, h3, h4, h5, h6 {
 .animate-tab-indicator {
   animation: tab-indicator-slide 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
   transform-origin: center;
+}
+
+/* ========================================
+   ONBOARDING SLIDE ANIMATIONS
+   ======================================== */
+
+@keyframes onboarding-slide-enter {
+  0% {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes onboarding-slide-exit {
+  0% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+}
+
+.animate-onboarding-slide-enter {
+  animation: onboarding-slide-enter 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.animate-onboarding-slide-exit {
+  animation: onboarding-slide-exit 0.3s ease-out forwards;
 }

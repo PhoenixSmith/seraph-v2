@@ -1,0 +1,5 @@
+export { OnboardingModal } from './OnboardingModal'
+export { OnboardingSlide } from './OnboardingSlide'
+export { useOnboarding } from './useOnboarding'
+export { slides } from './slides'
+export type { SlideConfig } from './slides'
